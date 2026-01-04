@@ -945,8 +945,49 @@ async function deleteSessionById(sessionId){
     }
   }
 
-  function renderHistory(){
-    renderMonthSelect();
+function renderHistory(){
+  renderMonthSelect();
+
+  const list = el("historyList");
+  if(!history.length){
+    list.innerHTML = `<div class="card"><div class="muted">Пока нет записей.</div></div>`;
+    return;
+  }
+
+  list.innerHTML = history.slice(0,10).map(t=>{
+    const body = (t.items || []).map(it=>{
+      const line = (it.sets || []).map(s=>`${s.setNo}: ${s.weight}кг×${s.reps}`).join(" • ");
+      return `<div style="margin-top:10px">
+        <div style="font-weight:900;font-size:13px">${it.ex}</div>
+        <div class="muted" style="margin-top:2px">${line || "—"}</div>
+      </div>`;
+    }).join("");
+
+    return `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+          <div>
+            <div style="font-weight:900">${t.workout}</div>
+            <div class="muted">${fmt(t.date)}</div>
+          </div>
+          <button class="btn secondary delSessionBtn" data-id="${t.id}"
+                  style="width:auto;padding:10px 12px">
+            Удалить
+          </button>
+        </div>
+        <div class="kpi">${body || `<div class="muted">Нет упражнений.</div>`}</div>
+      </div>
+    `;
+  }).join("");
+
+  // ВАЖНО: обработчики клика — только после вставки HTML
+  list.querySelectorAll(".delSessionBtn").forEach(btn=>{
+    btn.addEventListener("click", (e)=>{
+      const id = e.currentTarget.dataset.id;
+      deleteSessionById(id);
+    });
+  });
+}    renderMonthSelect();
 
     const list = el("historyList");
     if(!history.length){
@@ -984,7 +1025,7 @@ return `
   </div>
 `;
     }).join("");
-  }
+  
 
   function buildCsvForMonth(ym){
     const rows = [["date","month","workout","exercise","setNo","weight","reps"]];
