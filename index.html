@@ -21,18 +21,26 @@
       --danger:#ff6b6b;
       --success:#32d583;
     }
-    [data-theme="pink"]{
-      --bg:#fff6fb;
-      --panel:#ffffff;
-      --border:#ffd2e8;
-      --text:#1b1020;
-      --muted:rgba(27,16,32,.65);
-      --accent:#ff3ea8;
-      --btn:#ff3ea8;
-      --btnText:#ffffff;
-      --btn2:#fff0f8;
-      --btn2Text:#1b1020;
-    }
+[data-theme="pink"]{
+  /* фон и карточки — тёмные */
+  --bg:#0f0b0e;
+  --panel:#161116;
+  --border:#2a1d27;
+
+  /* текст — светлый */
+  --text:#ffffff;
+  --muted:rgba(255,255,255,.65);
+
+  /* розовый акцент — как был */
+  --accent:#dd77af;
+
+  /* кнопки */
+  --btn:#dd77af;
+  --btnText:#ffffff;
+
+  --btn2:#1e161c;
+  --btn2Text:#ffffff;
+}
 
     *{box-sizing:border-box}
     body{
@@ -259,7 +267,7 @@ input, select, textarea {
       <div class="brand">
         <div class="logo">WT</div>
         <div class="title">
-          <b>Workout Tracker</b>
+          <b>Tracker</b>
           <span id="sub">Вход</span>
         </div>
       </div>
@@ -282,14 +290,14 @@ input, select, textarea {
       <div class="muted">Вход по никнейму и паролю. Доступ только 2 пользователям.</div>
 
       <label>Никнейм</label>
-      <input id="nick" placeholder="gorilla" />
+      <input id="nick" placeholder="nickname" />
 
       <label>Пароль</label>
       <input id="pass" type="password" placeholder="••••••••" />
 
-      <div id="loginHint" class="alert">
+    <!--  <div id="loginHint" class="alert">
         Пример: nick = <b>gorilla</b> или <b>girl</b>
-      </div>
+      </div> -->
 
       <div class="actions">
         <button class="btn primary" id="loginBtn">Войти</button>
@@ -319,11 +327,11 @@ input, select, textarea {
 
           <div class="kpi">
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <div style="font-weight:800;font-size:14px">Этот месяц</div>
+              <div style="font-weight:800;font-size:14px">Эта неделя</div>
               <div class="muted" id="monthStat">0 тренировок</div>
             </div>
             <div class="bar"><div id="monthBar"></div></div>
-            <div class="muted" style="margin-top:8px">План = 12 тренировок/месяц (условно).</div>
+            <div class="muted" style="margin-top:8px">План = 3 тренировки/неделю.</div>
           </div>
 
           <div class="actions">
@@ -453,7 +461,7 @@ input, select, textarea {
           <label>Пользователь</label>
           <select id="adminUserSelect">
             <option value="TJ4cLJ0pVgb0dkh2R6IDdDS8k6F2">gorilla</option>
-            <option value="8Jbaay5imHYxRfEuL7hpRVIKAhW2">girl</option>
+            <option value="8Jbaay5imHYxRfEuL7hpRVIKAhW2">miu_miu</option>
           </select>
 
           <div class="actions">
@@ -512,14 +520,16 @@ import {
   // Ник -> email
   const NICK_TO_EMAIL = {
     gorilla: "gorilla@app.local",
-    girl: "girl@app.local"
+    miu_miu: "girl@app.local"
   };
 
   // Админы по UID
-  const ADMINS = new Set([
-    "TJ4cLJ0pVgb0dkh2R6IDdDS8k6F2",
-    "8Jbaay5imHYxRfEuL7hpRVIKAhW2"
-  ]);
+// Админ — только gorilla
+const ADMIN_UID = "TJ4cLJ0pVgb0dkh2R6IDdDS8k6F2";
+
+function isAdminLocal(){
+  return !!user && user.uid === ADMIN_UID;
+}
 
   // Дефолтная программа (если в Firestore её ещё нет)
   const DEFAULT_PROGRAM = {
@@ -554,7 +564,7 @@ import {
   function el(id){ return document.getElementById(id); }
   function show(id, yes=true){ el(id).style.display = yes ? "" : "none"; }
   function setSub(txt){ el("sub").textContent = txt; }
-  function isAdminLocal(){ return user && ADMINS.has(user.uid); }
+
 
   function adminMsg(text, isError=false){
     const box = el("adminStatus");
@@ -745,8 +755,8 @@ import {
     PROGRAM = DEFAULT_PROGRAM;
 
     el("nick").value=""; el("pass").value="";
-    el("loginHint").innerHTML = `Пример: nick = <b>gorilla</b> или <b>girl</b>`;
-    setSub("Вход");
+el("loginHint").style.display = "none";
+el("loginHint").innerHTML = "";    setSub("Вход");
     show("screenLogin", true);
     show("screenApp", false);
     show("logoutBtn", false);
@@ -931,14 +941,43 @@ el("finishBtn").addEventListener("click", async ()=>{
 // ---------------------------
 // Dashboard
 // ---------------------------
+function weekRangeISO(){
+  const now = new Date();
+
+  // делаем дату "сегодня" без времени, в локальной зоне
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  // понедельник = 0..6 (где 0 = Monday)
+  const day = (d.getDay() + 6) % 7;
+
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - day);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  // в ISO yyyy-mm-dd (локально)
+  const toISO = (x)=>{
+    const tz = x.getTimezoneOffset()*60000;
+    return new Date(x.getTime()-tz).toISOString().slice(0,10);
+  };
+
+  return { start: toISO(monday), end: toISO(sunday) };
+}
+
 function renderDashboard(){
   el("today").textContent = "Сегодня: " + fmt(todayISO());
 
-  const thisMonth = monthKey(todayISO());
-  const count = history.filter(h=>h.month === thisMonth).length;
+  const GOAL_PER_WEEK = 3;
 
-  el("monthStat").textContent = `${count} тренировок`;
-  const pct = Math.min(100, Math.round((count/12)*100));
+  const { start, end } = weekRangeISO();
+  // dates у тебя в формате YYYY-MM-DD, можно сравнивать строками
+  const count = history.filter(h => h.date >= start && h.date <= end).length;
+
+  // тот же id monthStat, просто показываем неделю
+  el("monthStat").textContent = `${count} / ${GOAL_PER_WEEK} тренировок`;
+
+  const pct = Math.min(100, Math.round((count / GOAL_PER_WEEK) * 100));
   el("monthBar").style.width = pct + "%";
 
   const last = history[0];
