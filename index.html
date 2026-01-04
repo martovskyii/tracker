@@ -1,0 +1,1159 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Workout Tracker</title>
+  <meta name="theme-color" content="#0b0b0c" />
+  <style>
+    :root{
+      --bg:#0b0b0c;
+      --panel:#121214;
+      --border:#2a2a2a;
+      --text:#ffffff;
+      --muted:rgba(255,255,255,.70);
+      --accent:#ffffff;
+      --btn:#ffffff;
+      --btnText:#000000;
+      --btn2:#1a1a1b;
+      --btn2Text:#ffffff;
+      --danger:#ff6b6b;
+      --success:#32d583;
+    }
+    [data-theme="pink"]{
+      --bg:#fff6fb;
+      --panel:#ffffff;
+      --border:#ffd2e8;
+      --text:#1b1020;
+      --muted:rgba(27,16,32,.65);
+      --accent:#ff3ea8;
+      --btn:#ff3ea8;
+      --btnText:#ffffff;
+      --btn2:#fff0f8;
+      --btn2Text:#1b1020;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+    .wrap{max-width:420px;margin:0 auto;padding:16px 14px 28px}
+    .topbar{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:12px; margin:8px 0 14px;
+    }
+    .brand{display:flex; align-items:center; gap:10px}
+    .logo{
+      width:40px;height:40px;border-radius:16px;
+      border:1px solid var(--border);
+      background:var(--panel);
+      display:grid;place-items:center;
+      font-weight:900;color:var(--accent);
+    }
+    .title{line-height:1.1}
+    .title b{display:block;font-size:14px}
+    .title span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+    .right{display:flex;align-items:center;gap:10px}
+    .switch{
+      display:flex; align-items:center; gap:8px;
+      border:1px solid var(--border); background:var(--panel);
+      padding:6px 10px;border-radius:999px;
+      font-size:12px;color:var(--muted);
+    }
+    .toggle{
+      width:42px;height:24px;border-radius:999px;
+      border:1px solid var(--border);
+      background:rgba(0,0,0,.06);
+      position:relative; cursor:pointer;
+    }
+    .knob{
+      position:absolute; top:2px; left:2px;
+      width:20px; height:20px; border-radius:999px;
+      background:var(--btn);
+      transition:transform .18s ease;
+    }
+    [data-theme="pink"] .knob{ transform:translateX(18px); }
+
+    .iconbtn{
+      width:40px;height:40px;border-radius:16px;
+      border:1px solid var(--border); background:var(--panel);
+      color:var(--text); cursor:pointer;
+    }
+    .card{
+      border:1px solid var(--border);
+      background:var(--panel);
+      border-radius:22px;
+      padding:14px;
+      margin:12px 0;
+    }
+    h2{margin:0 0 6px;font-size:18px}
+    .muted{color:var(--muted);font-size:13px}
+    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+    input, select, textarea{
+      width:100%;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:transparent;
+      color:var(--text);
+      outline:none;
+    }
+    input::placeholder{color:rgba(255,255,255,.35)}
+    [data-theme="pink"] input::placeholder{color:rgba(27,16,32,.35)}
+
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .btn{
+      width:100%;
+      border:none;
+      padding:12px 14px;
+      border-radius:16px;
+      cursor:pointer;
+      font-weight:700;
+    }
+    .btn.primary{background:var(--btn);color:var(--btnText)}
+    .btn.secondary{background:var(--btn2);color:var(--btn2Text);border:1px solid var(--border)}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .alert{
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:10px 12px;
+      font-size:13px;color:var(--muted);
+      margin:10px 0 0;
+    }
+    .alert b{color:var(--danger)}
+    .tabs{
+      display:grid; grid-template-columns:repeat(5,1fr);
+      border:1px solid var(--border);
+      background:var(--panel);
+      border-radius:18px;
+      padding:6px;
+      gap:6px;
+      position:sticky; top:0; z-index:10;
+    }
+    .tab{
+      padding:10px 8px;
+      border-radius:14px;
+      font-size:12px;
+      text-align:center;
+      cursor:pointer;
+      color:var(--muted);
+      user-select:none;
+      border:1px solid transparent;
+    }
+    .tab.active{
+      background:rgba(0,0,0,.06);
+      border-color:var(--border);
+      color:var(--text);
+    }
+    [data-theme="pink"] .tab.active{
+      background:rgba(255,62,168,.10);
+    }
+
+    .grid3{display:grid;grid-template-columns:1fr;gap:10px}
+    .workoutCard{
+      border:1px solid var(--border);
+      background:var(--panel);
+      border-radius:22px;
+      padding:14px;
+      cursor:pointer;
+    }
+    .workoutCard:hover{opacity:.95}
+    .workoutCard h3{margin:0;font-size:16px}
+    .pill{
+      display:inline-block;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:transparent;
+      color:var(--muted);
+      font-size:12px;
+      margin:6px 6px 0 0;
+      cursor:pointer;
+    }
+    .pill.active{
+      background:var(--btn);
+      color:var(--btnText);
+      border-color:transparent;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      overflow:hidden;
+      border-radius:18px;
+      border:1px solid var(--border);
+    }
+    th, td{
+      padding:10px 10px;
+      border-bottom:1px solid rgba(0,0,0,.08);
+      font-size:13px;
+      text-align:left;
+    }
+    :root th, :root td{
+      border-bottom:1px solid rgba(255,255,255,.10);
+    }
+    [data-theme="pink"] th, [data-theme="pink"] td{
+      border-bottom:1px solid rgba(0,0,0,.08);
+    }
+    th{color:var(--muted);font-weight:700;background:rgba(0,0,0,.04)}
+    :root th{background:rgba(255,255,255,.06)}
+    [data-theme="pink"] th{background:rgba(0,0,0,.04)}
+    tr:last-child td{border-bottom:none}
+
+    .actions{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+    .kpi{
+      border:1px solid var(--border);
+      background:rgba(0,0,0,.03);
+      border-radius:18px;
+      padding:12px;
+      margin-top:10px;
+    }
+    :root .kpi{background:rgba(255,255,255,.04)}
+    [data-theme="pink"] .kpi{background:rgba(0,0,0,.03)}
+    .bar{
+      height:10px;border-radius:999px;
+      background:rgba(0,0,0,.06);
+      overflow:hidden;border:1px solid var(--border);
+      margin-top:8px;
+    }
+    :root .bar{background:rgba(255,255,255,.10)}
+    [data-theme="pink"] .bar{background:rgba(0,0,0,.06)}
+    .bar > div{
+      height:100%;
+      width:0%;
+      background:var(--btn);
+      transition:width .25s ease;
+    }
+    .deltaPlus{color:var(--success);font-weight:900}
+    .deltaMinus{color:var(--danger);font-weight:900}
+    .footer{margin-top:18px;text-align:center;font-size:11px;color:var(--muted)}
+  </style>
+</head>
+
+<body>
+  <div class="wrap" id="app">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">WT</div>
+        <div class="title">
+          <b>Workout Tracker</b>
+          <span id="sub">Вход</span>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="switch">
+          <span>Black</span>
+          <div class="toggle" id="themeToggle" title="Переключить тему">
+            <div class="knob"></div>
+          </div>
+          <span>Pink</span>
+        </div>
+        <button class="iconbtn" id="logoutBtn" title="Выйти" style="display:none;">⎋</button>
+      </div>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="screenLogin" class="card">
+      <h2>Вход</h2>
+      <div class="muted">Вход по никнейму и паролю. Доступ только 2 пользователям.</div>
+
+      <label>Никнейм</label>
+      <input id="nick" placeholder="gorilla" />
+
+      <label>Пароль</label>
+      <input id="pass" type="password" placeholder="••••••••" />
+
+      <div id="loginHint" class="alert">
+        Пример: nick = <b>gorilla</b> или <b>girl</b>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="loginBtn">Войти</button>
+      </div>
+    </div>
+
+    <!-- APP -->
+    <div id="screenApp" style="display:none;">
+      <div class="tabs">
+        <div class="tab active" data-tab="dashboard">Главная</div>
+        <div class="tab" data-tab="select">Тренировки</div>
+        <div class="tab" data-tab="history">История</div>
+        <div class="tab" data-tab="progress">Прогресс</div>
+        <div class="tab" data-tab="admin" id="adminTabBtn" style="display:none;">Админ</div>
+      </div>
+
+      <!-- DASHBOARD -->
+      <div id="tab-dashboard" class="tabpane">
+        <div class="card">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+            <div>
+              <div class="muted">Профиль</div>
+              <div style="font-size:20px;font-weight:900;margin-top:2px" id="profileName">—</div>
+              <div class="muted" id="today"></div>
+            </div>
+          </div>
+
+          <div class="kpi">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-weight:800;font-size:14px">Этот месяц</div>
+              <div class="muted" id="monthStat">0 тренировок</div>
+            </div>
+            <div class="bar"><div id="monthBar"></div></div>
+            <div class="muted" style="margin-top:8px">План = 12 тренировок/месяц (условно).</div>
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" id="goStart">Начать тренировку</button>
+            <div class="two">
+              <button class="btn secondary" id="goHistory">История</button>
+              <button class="btn secondary" id="goProgress">Прогресс</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-weight:900;margin-bottom:8px">Последняя тренировка</div>
+          <div id="lastWorkout" class="muted">Пока нет записей.</div>
+        </div>
+      </div>
+
+      <!-- SELECT -->
+      <div id="tab-select" class="tabpane" style="display:none;">
+        <div class="card">
+          <h2>Выбор тренировки</h2>
+          <div class="muted">Тапни по карточке, чтобы открыть упражнения.</div>
+        </div>
+
+        <div class="grid3">
+          <div class="workoutCard" data-workout="Вверх">
+            <h3>Вверх</h3>
+            <div class="muted">Спина / грудь / плечи / руки</div>
+          </div>
+          <div class="workoutCard" data-workout="Ягодицы">
+            <h3>Ягодицы</h3>
+            <div class="muted">Акцент на ягодичные</div>
+          </div>
+          <div class="workoutCard" data-workout="Ноги">
+            <h3>Ноги</h3>
+            <div class="muted">Квадрицепс + задняя</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WORKOUT -->
+      <div id="tab-workout" class="tabpane" style="display:none;">
+        <div class="card">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+            <div>
+              <div class="muted">Тренировка</div>
+              <div style="font-size:18px;font-weight:900" id="wName">—</div>
+              <div class="muted">Дата: <span id="wDate"></span></div>
+            </div>
+            <button class="btn secondary" id="finishBtn" style="width:auto;padding:10px 12px">Завершить</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-weight:900;margin-bottom:10px">Упражнения</div>
+          <div id="exPills"></div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+            <div>
+              <div style="font-size:16px;font-weight:900" id="exTitle">—</div>
+              <div class="muted">План: <span id="exScheme">—</span></div>
+            </div>
+            <button class="btn secondary" id="videoBtn" style="width:auto;padding:10px 12px">Видео</button>
+          </div>
+
+          <div class="kpi" style="margin-top:12px">
+            <div class="row">
+              <div>
+                <label>Подход №</label>
+                <input id="setNo" type="number" min="1" value="1" />
+              </div>
+              <div>
+                <label>Вес (кг)</label>
+                <input id="weight" type="number" step="0.5" value="0" />
+              </div>
+              <div>
+                <label>Повторы</label>
+                <input id="reps" type="number" min="0" value="12" />
+              </div>
+            </div>
+
+            <div class="actions" style="margin-top:10px">
+              <button class="btn primary" id="saveSet">Сохранить подход</button>
+              <div class="muted">Сохранение идёт в Firestore после «Завершить».</div>
+            </div>
+          </div>
+
+          <div style="font-weight:900;margin-top:14px">Текущие подходы</div>
+          <div id="setsTableWrap" style="margin-top:10px" class="muted">Пока нет подходов.</div>
+        </div>
+      </div>
+
+      <!-- HISTORY -->
+      <div id="tab-history" class="tabpane" style="display:none;">
+        <div class="card">
+          <h2>История</h2>
+          <div class="muted">Тренировки по датам. Экспорт — по месяцам.</div>
+
+          <label>Месяц для экспорта</label>
+          <select id="monthSelect"></select>
+
+          <div class="actions">
+            <button class="btn secondary" id="exportMonth">Экспорт CSV выбранного месяца</button>
+            <button class="btn secondary" id="exportAllMonths">Экспорт CSV всех месяцев</button>
+          </div>
+        </div>
+        <div id="historyList"></div>
+      </div>
+
+      <!-- PROGRESS -->
+      <div id="tab-progress" class="tabpane" style="display:none;">
+        <div class="card">
+          <h2>Прогресс</h2>
+          <div class="muted">Сравнение: последняя тренировка vs предыдущая по каждому упражнению.</div>
+        </div>
+        <div class="card" id="progressTableWrap"></div>
+      </div>
+
+      <!-- ADMIN -->
+      <div id="tab-admin" class="tabpane" style="display:none;">
+        <div class="card">
+          <h2>Админ</h2>
+          <div class="muted">Редактирование программ пользователей (users/{uid}/config/program).</div>
+
+          <label>Пользователь</label>
+          <select id="adminUserSelect">
+            <option value="TJ4cLJ0pVgb0dkh2R6IDdDS8k6F2">gorilla</option>
+            <option value="8Jbaay5imHYxRfEuL7hpRVIKAhW2">girl</option>
+          </select>
+
+          <div class="actions">
+            <div class="two">
+              <button class="btn secondary" id="adminLoadBtn">Загрузить</button>
+              <button class="btn secondary" id="adminCopyDefaultBtn">Скопировать дефолт</button>
+            </div>
+            <button class="btn primary" id="adminSaveBtn">Сохранить</button>
+          </div>
+
+          <label style="margin-top:12px;">Program JSON</label>
+          <textarea id="adminProgramJson" rows="16"></textarea>
+
+          <div class="alert" id="adminStatus" style="display:none;"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+
+  import {
+    getAuth,
+    signInWithEmailAndPassword,
+    signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  orderBy,
+  deleteDoc
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCDV7oyY707TGZpaaBbKfgZvpAJ8mZ8QdM",
+    authDomain: "workout-tracker-95212121.firebaseapp.com",
+    projectId: "workout-tracker-95212121",
+    storageBucket: "workout-tracker-95212121.firebasestorage.app",
+    messagingSenderId: "105737690348",
+    appId: "1:105737690348:web:d9938bca38e0ab4eab59c9"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Ник -> email
+  const NICK_TO_EMAIL = {
+    gorilla: "gorilla@app.local",
+    girl: "girl@app.local"
+  };
+
+  // Админы по UID
+  const ADMINS = new Set([
+    "TJ4cLJ0pVgb0dkh2R6IDdDS8k6F2",
+    "8Jbaay5imHYxRfEuL7hpRVIKAhW2"
+  ]);
+
+  // Дефолтная программа (если в Firestore её ещё нет)
+  const DEFAULT_PROGRAM = {
+    "Вверх": [
+      {name:"Тяга верхнего блока / гравитрон", scheme:"4×15 | 12", video:"https://drive.google.com/"},
+      {name:"Бабочка", scheme:"4×12 | 10", video:"https://drive.google.com/"},
+      {name:"Жим гантелей сидя / стоя", scheme:"4×12", video:"https://drive.google.com/"},
+      {name:"Отжимания обратным хватом", scheme:"3×max", video:"https://drive.google.com/"},
+      {name:"Сгибание гантелей стоя", scheme:"3×12", video:"https://drive.google.com/"}
+    ],
+    "Ягодицы": [
+      {name:"Разгиб сидя в тренажёре", scheme:"3×15", video:"https://drive.google.com/"},
+      {name:"Присед в Смите", scheme:"5×12 | 10", video:"https://drive.google.com/"},
+      {name:"Ягодичный мостик (штанга)", scheme:"4×12 | 10", video:"https://drive.google.com/"},
+      {name:"Румынская тяга", scheme:"4×12 | 10", video:"https://drive.google.com/"},
+      {name:"Выпады в Смите (обычные)", scheme:"3×10 на ногу", video:"https://drive.google.com/"}
+    ],
+    "Ноги": [
+      {name:"Разгиб сидя в тренажёре", scheme:"3×15", video:"https://drive.google.com/"},
+      {name:"Присед в Смите (средняя / узкая стойка)", scheme:"5×12 | 10", video:"https://drive.google.com/"},
+      {name:"Жим ногами в платформе", scheme:"4×10", video:"https://drive.google.com/"},
+      {name:"Сгибание ног сидя", scheme:"4×12 | 10", video:"https://drive.google.com/"}
+    ],
+  };
+
+  // Текущая программа (для залогиненного пользователя)
+  let PROGRAM = DEFAULT_PROGRAM;
+
+  // ---------------------------
+  // Helpers
+  // ---------------------------
+  function el(id){ return document.getElementById(id); }
+  function show(id, yes=true){ el(id).style.display = yes ? "" : "none"; }
+  function setSub(txt){ el("sub").textContent = txt; }
+  function isAdminLocal(){ return user && ADMINS.has(user.uid); }
+
+  function adminMsg(text, isError=false){
+    const box = el("adminStatus");
+    box.style.display = "";
+    box.innerHTML = isError ? `<b>Ошибка:</b> ${text}` : text;
+  }
+
+  function todayISO(){
+    const d = new Date();
+    const tz = d.getTimezoneOffset()*60000;
+    return new Date(Date.now()-tz).toISOString().slice(0,10);
+  }
+  function fmt(iso){
+    const [y,m,d] = iso.split("-");
+    return `${d}.${m}.${y}`;
+  }
+  function monthKey(iso){ return iso.slice(0,7); } // YYYY-MM
+  function monthTitle(ym){
+    const [y,m] = ym.split("-");
+    return `${m}.${y}`;
+  }
+  function downloadText(filename, text){
+    const blob = new Blob([text], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+  function csvEscape(v){
+    const s = String(v ?? "");
+    return `"${s.replaceAll('"','""')}"`;
+  }
+
+  // ---------------------------
+  // Theme
+  // ---------------------------
+  const savedTheme = localStorage.getItem("wt_theme");
+  if(savedTheme === "pink") document.documentElement.setAttribute("data-theme","pink");
+  el("themeToggle").addEventListener("click", ()=>{
+    const isPink = document.documentElement.getAttribute("data-theme")==="pink";
+    if(isPink){
+      document.documentElement.removeAttribute("data-theme");
+      localStorage.setItem("wt_theme","black");
+    } else {
+      document.documentElement.setAttribute("data-theme","pink");
+      localStorage.setItem("wt_theme","pink");
+    }
+  });
+
+  // ---------------------------
+  // Firestore: program
+  // ---------------------------
+  async function loadProgramDoc(uid){
+    const ref = doc(db, "users", uid, "config", "program");
+    const snap = await getDoc(ref);
+    if(!snap.exists()) return null;
+    const data = snap.data();
+    return data?.program || null;
+  }
+
+  async function saveProgramDoc(uid, programObj){
+    const ref = doc(db, "users", uid, "config", "program");
+    await setDoc(ref, {
+      program: programObj,
+      updatedAt: Date.now(),
+      updatedBy: user.uid
+    }, { merge: true });
+  }
+
+  function validateProgramShape(p){
+    if(!p || typeof p !== "object") return "Program должен быть объектом";
+    for(const key of ["Вверх","Ягодицы","Ноги"]){
+      if(!Array.isArray(p[key])) return `В Program нет массива "${key}"`;
+      for(const ex of p[key]){
+        if(typeof ex !== "object") return `В "${key}" есть не-объект`;
+        if(!ex.name || !ex.scheme) return `В "${key}" у упражнения нет name/scheme`;
+        if(!ex.video) ex.video = "https://drive.google.com/";
+      }
+    }
+    return null;
+  }
+
+  // ---------------------------
+  // State
+  // ---------------------------
+  let user = null;           // Firebase user
+  let profile = null;        // {nick}
+  let history = [];          // loaded from Firestore
+  let activeTab = "dashboard";
+
+  let currentWorkout = null;
+  let currentExercise = null;
+  let session = { date: todayISO(), workout:null, items:{} }; // items[exName] = sets[]
+
+  // ---------------------------
+  // Tabs
+  // ---------------------------
+  function setActiveTabUI(tab){
+    activeTab = tab;
+    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab===tab));
+    ["dashboard","select","workout","history","progress","admin"].forEach(k=>{
+      el("tab-"+k).style.display = (k===tab) ? "" : "none";
+    });
+  }
+
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.addEventListener("click", async ()=>{
+      const tab = t.dataset.tab;
+
+      if(tab==="history"){ setActiveTabUI("history"); renderHistory(); return; }
+      if(tab==="progress"){ setActiveTabUI("progress"); renderProgress(); return; }
+      if(tab==="admin"){
+        if(!isAdminLocal()) return;
+        setActiveTabUI("admin");
+        return;
+      }
+      if(tab==="select"){ setActiveTabUI("select"); return; }
+      if(tab==="dashboard"){ setActiveTabUI("dashboard"); renderDashboard(); return; }
+    });
+  });
+
+  el("goStart").addEventListener("click", ()=> setActiveTabUI("select"));
+  el("goHistory").addEventListener("click", ()=> { setActiveTabUI("history"); renderHistory(); });
+  el("goProgress").addEventListener("click", ()=> { setActiveTabUI("progress"); renderProgress(); });
+
+  // ---------------------------
+  // Login / Logout
+  // ---------------------------
+  el("loginBtn").addEventListener("click", async ()=>{
+    const nick = el("nick").value.trim().toLowerCase();
+    const pass = el("pass").value.trim();
+
+    if(!nick || !pass){
+      el("loginHint").innerHTML = `<b>Ошибка:</b> Заполни никнейм и пароль.`;
+      return;
+    }
+    const email = NICK_TO_EMAIL[nick];
+    if(!email){
+      el("loginHint").innerHTML = `<b>Ошибка:</b> Нет доступа.`;
+      return;
+    }
+
+    try{
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      user = cred.user;
+
+      // подгружаем персональную программу пользователя
+      const loaded = await loadProgramDoc(user.uid);
+      PROGRAM = loaded ?? DEFAULT_PROGRAM;
+
+      // profile doc (users/{uid})
+      const ref = doc(db, "users", user.uid);
+      const snap = await getDoc(ref);
+      if(!snap.exists()){
+        await setDoc(ref, { nick, createdAt: Date.now() });
+        profile = { nick };
+      } else {
+        profile = snap.data();
+      }
+
+      await loadHistory();
+
+      el("profileName").textContent = profile.nick;
+      setSub(profile.nick);
+      show("screenLogin", false);
+      show("screenApp", true);
+      show("logoutBtn", true);
+
+      if(isAdminLocal()){
+        show("adminTabBtn", true);
+      } else {
+        show("adminTabBtn", false);
+      }
+
+      setActiveTabUI("dashboard");
+      renderDashboard();
+      renderHistory();
+      renderProgress();
+    }catch(e){
+      el("loginHint").innerHTML = `<b>Ошибка:</b> Неверный никнейм или пароль.`;
+      console.error(e);
+    }
+  });
+
+  el("logoutBtn").addEventListener("click", async ()=>{
+    await signOut(auth);
+    user = null; profile = null; history = [];
+    PROGRAM = DEFAULT_PROGRAM;
+
+    el("nick").value=""; el("pass").value="";
+    el("loginHint").innerHTML = `Пример: nick = <b>gorilla</b> или <b>girl</b>`;
+    setSub("Вход");
+    show("screenLogin", true);
+    show("screenApp", false);
+    show("logoutBtn", false);
+    show("adminTabBtn", false);
+  });
+
+  // ---------------------------
+  // Load from Firestore
+  // ---------------------------
+  async function loadHistory(){
+    if(!user) return;
+    const qy = query(collection(db, "users", user.uid, "sessions"), orderBy("date", "desc"));
+    const snap = await getDocs(qy);
+    history = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  }
+async function deleteSessionById(sessionId){
+  if(!user) return;
+
+  const ok = confirm("Удалить эту тренировку? Действие нельзя отменить.");
+  if(!ok) return;
+
+  try{
+    await deleteDoc(doc(db, "users", user.uid, "sessions", sessionId));
+    await loadHistory();
+    renderDashboard();
+    renderHistory();
+    renderProgress();
+  }catch(e){
+    console.error(e);
+    alert("Не удалось удалить тренировку. Проверь доступ/Rules.");
+  }
+}
+  // ---------------------------
+  // Select workout
+  // ---------------------------
+  document.querySelectorAll(".workoutCard").forEach(c=>{
+    c.addEventListener("click", ()=>{
+      startWorkout(c.dataset.workout);
+    });
+  });
+
+  function startWorkout(w){
+    currentWorkout = w;
+    session = { date: todayISO(), workout:w, items:{} };
+    el("wName").textContent = w;
+    el("wDate").textContent = fmt(session.date);
+
+    const pills = el("exPills");
+    pills.innerHTML = "";
+
+    const list = PROGRAM[w] || [];
+    list.forEach((ex, i)=>{
+      const b = document.createElement("button");
+      b.className = "pill" + (i===0 ? " active":"");
+      b.textContent = ex.name;
+      b.addEventListener("click", ()=> selectExercise(ex.name));
+      pills.appendChild(b);
+    });
+
+    currentExercise = list[0]?.name || null;
+    renderExercise(true);
+    setActiveTabUI("workout");
+  }
+
+  function selectExercise(name){
+    currentExercise = name;
+    document.querySelectorAll("#exPills .pill").forEach(p=> p.classList.toggle("active", p.textContent===name));
+    renderExercise(true);
+  }
+
+  function getExObj(){
+    const arr = PROGRAM[currentWorkout] || [];
+    return arr.find(x=>x.name===currentExercise);
+  }
+
+  function renderExercise(resetSetNo=false){
+    const ex = getExObj();
+    if(!ex){
+      el("exTitle").textContent = "Нет упражнений";
+      el("exScheme").textContent = "—";
+      el("setsTableWrap").innerHTML = "—";
+      return;
+    }
+
+    el("exTitle").textContent = ex.name;
+    el("exScheme").textContent = ex.scheme;
+
+    if(resetSetNo){
+      const sets = session.items[ex.name] || [];
+      const next = sets.length ? (Math.max(...sets.map(s=>Number(s.setNo||0))) + 1) : 1;
+      el("setNo").value = next;
+    }
+
+    renderSetsTable();
+  }
+
+  el("videoBtn").addEventListener("click", ()=>{
+    const ex = getExObj();
+    if(!ex?.video) return;
+    window.open(ex.video, "_blank", "noopener,noreferrer");
+  });
+
+  // Save set (in session)
+  el("saveSet").addEventListener("click", ()=>{
+    const ex = getExObj();
+    if(!ex) return;
+
+    const setNo = Number(el("setNo").value || 1);
+    const weight = Number(el("weight").value || 0);
+    const reps = Number(el("reps").value || 0);
+
+    if(!session.items[ex.name]) session.items[ex.name] = [];
+    session.items[ex.name].push({setNo, weight, reps});
+
+    el("setNo").value = setNo + 1;
+    renderSetsTable();
+  });
+
+  function renderSetsTable(){
+    const ex = getExObj();
+    if(!ex){
+      el("setsTableWrap").innerHTML = `<div class="muted">—</div>`;
+      return;
+    }
+
+    const sets = session.items[ex.name] || [];
+    const wrap = el("setsTableWrap");
+
+    if(!sets.length){
+      wrap.className = "muted";
+      wrap.innerHTML = "Пока нет подходов.";
+      return;
+    }
+    wrap.className = "";
+    wrap.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>№</th><th>Вес</th><th>Повт.</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sets.map(s=>`
+            <tr>
+              <td>${s.setNo}</td>
+              <td>${s.weight} кг</td>
+              <td>${s.reps}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  // Finish workout -> save to Firestore
+  el("finishBtn").addEventListener("click", async ()=>{
+    if(!user || !session.workout) { setActiveTabUI("dashboard"); return; }
+
+    const items = Object.entries(session.items).map(([ex, sets])=>({ ex, sets }));
+    const payload = {
+      date: session.date,
+      month: monthKey(session.date),
+      workout: session.workout,
+      items,
+      createdAt: Date.now()
+    };
+
+    try{
+      await addDoc(collection(db, "users", user.uid, "sessions"), payload);
+      await loadHistory();
+      renderDashboard();
+      renderHistory();
+      renderProgress();
+      setActiveTabUI("dashboard");
+    }catch(e){
+      console.error(e);
+      alert("Не удалось сохранить. Проверь Rules/доступ.");
+    }
+  });
+
+  // ---------------------------
+  // Dashboard
+  // ---------------------------
+  function renderDashboard(){
+    el("today").textContent = "Сегодня: " + fmt(todayISO());
+
+    const thisMonth = monthKey(todayISO());
+    const count = history.filter(h=>h.month === thisMonth).length;
+
+    el("monthStat").textContent = `${count} тренировок`;
+    const pct = Math.min(100, Math.round((count/12)*100));
+    el("monthBar").style.width = pct + "%";
+
+    const last = history[0];
+    if(!last){
+      el("lastWorkout").textContent = "Пока нет записей.";
+    } else {
+      el("lastWorkout").innerHTML = `
+        <div style="font-weight:900">${last.workout}</div>
+        <div class="muted">${fmt(last.date)} • Упражнений: ${(last.items||[]).length}</div>
+      `;
+    }
+  }
+
+  // ---------------------------
+  // History + Export
+  // ---------------------------
+  function renderMonthSelect(){
+    const months = Array.from(new Set(history.map(h=>h.month))).sort().reverse();
+    const sel = el("monthSelect");
+    sel.innerHTML = months.map(m=>`<option value="${m}">${monthTitle(m)}</option>`).join("");
+    if(!months.length){
+      sel.innerHTML = `<option value="">Нет данных</option>`;
+    }
+  }
+
+  function renderHistory(){
+    renderMonthSelect();
+
+    const list = el("historyList");
+    if(!history.length){
+      list.innerHTML = `<div class="card"><div class="muted">Пока нет записей.</div></div>`;
+      return;
+    }
+    list.innerHTML = history.slice(0,10).map(t=>{
+      const body = (t.items || []).map(it=>{
+        const line = (it.sets || []).map(s=>`${s.setNo}: ${s.weight}кг×${s.reps}`).join(" • ");
+        list.querySelectorAll(".delSessionBtn").forEach(btn=>{
+  btn.addEventListener("click", (e)=>{
+    const id = e.currentTarget.dataset.id;
+    deleteSessionById(id);
+  });
+});
+        return `<div style="margin-top:10px">
+          <div style="font-weight:900;font-size:13px">${it.ex}</div>
+          <div class="muted" style="margin-top:2px">${line || "—"}</div>
+        </div>`;
+      }).join("");
+return `
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+      <div>
+        <div style="font-weight:900">${t.workout}</div>
+        <div class="muted">${fmt(t.date)}</div>
+      </div>
+      <button class="btn secondary delSessionBtn" data-id="${t.id}"
+              style="width:auto;padding:10px 12px">
+        Удалить
+      </button>
+    </div>
+
+    <div class="kpi">${body || `<div class="muted">Нет упражнений.</div>`}</div>
+  </div>
+`;
+    }).join("");
+  }
+
+  function buildCsvForMonth(ym){
+    const rows = [["date","month","workout","exercise","setNo","weight","reps"]];
+    history
+      .filter(h=>h.month===ym)
+      .forEach(h=>{
+        (h.items||[]).forEach(it=>{
+          (it.sets||[]).forEach(s=>{
+            rows.push([
+              h.date, h.month, h.workout, it.ex,
+              s.setNo, s.weight, s.reps
+            ]);
+          });
+        });
+      });
+
+    return rows.map(r=>r.map(csvEscape).join(",")).join("\n");
+  }
+
+  el("exportMonth").addEventListener("click", ()=>{
+    const ym = el("monthSelect").value;
+    if(!ym) return alert("Нет данных.");
+    const csv = buildCsvForMonth(ym);
+    downloadText(`workouts_${ym}.csv`, csv);
+  });
+
+  el("exportAllMonths").addEventListener("click", ()=>{
+    const months = Array.from(new Set(history.map(h=>h.month))).sort();
+    if(!months.length) return alert("Нет данных.");
+    months.forEach(ym=>{
+      const csv = buildCsvForMonth(ym);
+      downloadText(`workouts_${ym}.csv`, csv);
+    });
+  });
+
+  // ---------------------------
+  // Progress: last vs prev (per exercise)
+  // ---------------------------
+  function buildProgressLastVsPrev(){
+    const logs = [];
+    for(const h of history){
+      for(const it of (h.items||[])){
+        const best = Math.max(...(it.sets||[]).map(s => Number(s.weight||0)), 0);
+        logs.push({ ex: it.ex, date: h.date, best });
+      }
+    }
+
+    const byEx = new Map();
+    for(const r of logs){
+      if(!byEx.has(r.ex)) byEx.set(r.ex, []);
+      byEx.get(r.ex).push(r);
+    }
+
+    const rows = [];
+    for(const [ex, arr] of byEx.entries()){
+      arr.sort((a,b)=> b.date.localeCompare(a.date));
+      const last = arr[0];
+      const prev = arr[1];
+
+      const lastW = last?.best ?? 0;
+      const prevW = prev?.best ?? 0;
+      const delta = lastW - prevW;
+
+      rows.push({ ex, lastW, prevW, delta });
+    }
+
+    rows.sort((a,b)=> (b.delta - a.delta) || (b.lastW - a.lastW));
+    return rows;
+  }
+
+  function renderProgress(){
+    const rows = buildProgressLastVsPrev();
+    const wrap = el("progressTableWrap");
+
+    if(!rows.length){
+      wrap.innerHTML = `<div class="muted">Недостаточно данных.</div>`;
+      return;
+    }
+
+    wrap.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Упражнение</th>
+            <th>Последний</th>
+            <th>Предыдущий</th>
+            <th>Δ</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r=>{
+            const cls = r.delta >= 0 ? "deltaPlus" : "deltaMinus";
+            const sign = r.delta >= 0 ? "+" : "";
+            const prevTxt = r.prevW ? `${r.prevW} кг` : "—";
+            return `
+              <tr>
+                <td>${r.ex}</td>
+                <td><b>${r.lastW} кг</b></td>
+                <td>${prevTxt}</td>
+                <td class="${cls}">${r.prevW ? (sign + r.delta + " кг") : "—"}</td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  // ---------------------------
+  // Admin: Load / Copy default / Save
+  // ---------------------------
+  el("adminLoadBtn").addEventListener("click", async ()=>{
+    if(!isAdminLocal()) return adminMsg("Нет доступа", true);
+    const targetUid = el("adminUserSelect").value;
+
+    const program = await loadProgramDoc(targetUid);
+    if(!program){
+      el("adminProgramJson").value = "";
+      return adminMsg("У пользователя нет сохранённой программы. Нажми «Скопировать дефолт» и «Сохранить».");
+    }
+
+    el("adminProgramJson").value = JSON.stringify(program, null, 2);
+    adminMsg("Загружено.");
+  });
+
+  el("adminCopyDefaultBtn").addEventListener("click", ()=>{
+    if(!isAdminLocal()) return adminMsg("Нет доступа", true);
+    el("adminProgramJson").value = JSON.stringify(DEFAULT_PROGRAM, null, 2);
+    adminMsg("Дефолт вставлен. Правь JSON и жми «Сохранить».");
+  });
+
+  el("adminSaveBtn").addEventListener("click", async ()=>{
+    if(!isAdminLocal()) return adminMsg("Нет доступа", true);
+
+    const targetUid = el("adminUserSelect").value;
+    const raw = el("adminProgramJson").value.trim();
+    if(!raw) return adminMsg("Пустой JSON", true);
+
+    let programObj;
+    try{
+      programObj = JSON.parse(raw);
+    }catch(e){
+      return adminMsg("JSON не парсится. Проверь запятые/кавычки.", true);
+    }
+
+    const err = validateProgramShape(programObj);
+    if(err) return adminMsg(err, true);
+
+    try{
+      await saveProgramDoc(targetUid, programObj);
+      adminMsg("Сохранено в Firestore.");
+
+      // если обновляешь программу себе — применим сразу
+      if(user && targetUid === user.uid){
+        PROGRAM = programObj;
+      }
+    }catch(e){
+      console.error(e);
+      adminMsg("Не удалось сохранить (проверь Rules).", true);
+    }
+  });
+
+  // ---------------------------
+  // Initial UI
+  // ---------------------------
+  show("screenApp", false);
+  show("logoutBtn", false);
+  show("adminTabBtn", false);
+  setSub("Вход");
+</script>
+</body>
+</html>
