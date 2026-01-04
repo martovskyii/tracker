@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Workout Tracker</title>
   <meta name="theme-color" content="#0b0b0c" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
   <style>
     :root{
       --bg:#0b0b0c;
@@ -232,6 +233,23 @@
     .deltaPlus{color:var(--success);font-weight:900}
     .deltaMinus{color:var(--danger);font-weight:900}
     .footer{margin-top:18px;text-align:center;font-size:11px;color:var(--muted)}
+
+
+    /* iOS Safari: не зумить при фокусе на полях */
+input, select, textarea {
+  font-size: 16px; /* ключевой фикс */
+}
+
+/* если хочешь одинаковый размер и в карточках/лейблах */
+label { font-size: 12px; } /* можно оставить как было */
+
+/* иногда iOS меняет вид полей — это норм, но можно слегка стабилизировать */
+input, select, textarea {
+  -webkit-text-size-adjust: 100%;
+}
+
+
+
   </style>
 </head>
 
@@ -884,67 +902,69 @@ async function deleteSessionById(sessionId){
   }
 
   // Finish workout -> save to Firestore
-  el("finishBtn").addEventListener("click", async ()=>{
-    if(!user || !session.workout) { setActiveTabUI("dashboard"); return; }
+  // Finish workout -> save to Firestore
+el("finishBtn").addEventListener("click", async ()=>{
+  if(!user || !session.workout) { setActiveTabUI("dashboard"); return; }
 
-    const items = Object.entries(session.items).map(([ex, sets])=>({ ex, sets }));
-    const payload = {
-      date: session.date,
-      month: monthKey(session.date),
-      workout: session.workout,
-      items,
-      createdAt: Date.now()
-    };
+  const items = Object.entries(session.items).map(([ex, sets])=>({ ex, sets }));
+  const payload = {
+    date: session.date,
+    month: monthKey(session.date),
+    workout: session.workout,
+    items,
+    createdAt: Date.now()
+  };
 
-    try{
-      await addDoc(collection(db, "users", user.uid, "sessions"), payload);
-      await loadHistory();
-      renderDashboard();
-      renderHistory();
-      renderProgress();
-      setActiveTabUI("dashboard");
-    }catch(e){
-      console.error(e);
-      alert("Не удалось сохранить. Проверь Rules/доступ.");
-    }
-  });
-
-  // ---------------------------
-  // Dashboard
-  // ---------------------------
-  function renderDashboard(){
-    el("today").textContent = "Сегодня: " + fmt(todayISO());
-
-    const thisMonth = monthKey(todayISO());
-    const count = history.filter(h=>h.month === thisMonth).length;
-
-    el("monthStat").textContent = `${count} тренировок`;
-    const pct = Math.min(100, Math.round((count/12)*100));
-    el("monthBar").style.width = pct + "%";
-
-    const last = history[0];
-    if(!last){
-      el("lastWorkout").textContent = "Пока нет записей.";
-    } else {
-      el("lastWorkout").innerHTML = `
-        <div style="font-weight:900">${last.workout}</div>
-        <div class="muted">${fmt(last.date)} • Упражнений: ${(last.items||[]).length}</div>
-      `;
-    }
+  try{
+    await addDoc(collection(db, "users", user.uid, "sessions"), payload);
+    await loadHistory();
+    renderDashboard();
+    renderHistory();
+    renderProgress();
+    setActiveTabUI("dashboard");
+  }catch(e){
+    console.error(e);
+    alert("Не удалось сохранить. Проверь Rules/доступ.");
   }
+});
 
-  // ---------------------------
-  // History + Export
-  // ---------------------------
-  function renderMonthSelect(){
-    const months = Array.from(new Set(history.map(h=>h.month))).sort().reverse();
-    const sel = el("monthSelect");
-    sel.innerHTML = months.map(m=>`<option value="${m}">${monthTitle(m)}</option>`).join("");
-    if(!months.length){
-      sel.innerHTML = `<option value="">Нет данных</option>`;
-    }
+// ---------------------------
+// Dashboard
+// ---------------------------
+function renderDashboard(){
+  el("today").textContent = "Сегодня: " + fmt(todayISO());
+
+  const thisMonth = monthKey(todayISO());
+  const count = history.filter(h=>h.month === thisMonth).length;
+
+  el("monthStat").textContent = `${count} тренировок`;
+  const pct = Math.min(100, Math.round((count/12)*100));
+  el("monthBar").style.width = pct + "%";
+
+  const last = history[0];
+  if(!last){
+    el("lastWorkout").textContent = "Пока нет записей.";
+  } else {
+    el("lastWorkout").innerHTML = `
+      <div style="font-weight:900">${last.workout}</div>
+      <div class="muted">${fmt(last.date)} • Упражнений: ${(last.items||[]).length}</div>
+    `;
   }
+}
 
+// ---------------------------
+// History + Export
+// ---------------------------
+function renderMonthSelect(){
+  const months = Array.from(new Set(history.map(h=>h.month))).sort().reverse();
+  const sel = el("monthSelect");
+  sel.innerHTML = months.map(m=>`<option value="${m}">${monthTitle(m)}</option>`).join("");
+  if(!months.length){
+    sel.innerHTML = `<option value="">Нет данных</option>`;
+  }
+}
+
+// ВАЖНО: эта функция должна быть ТОЛЬКО ОДНА (без дублей ниже)
 function renderHistory(){
   renderMonthSelect();
 
@@ -970,7 +990,8 @@ function renderHistory(){
             <div style="font-weight:900">${t.workout}</div>
             <div class="muted">${fmt(t.date)}</div>
           </div>
-          <button class="btn secondary delSessionBtn" data-id="${t.id}"
+          <button class="btn secondary delSessionBtn"
+                  data-id="${t.id}"
                   style="width:auto;padding:10px 12px">
             Удалить
           </button>
@@ -980,159 +1001,120 @@ function renderHistory(){
     `;
   }).join("");
 
-  // ВАЖНО: обработчики клика — только после вставки HTML
+  // обработчики клика — только после вставки HTML
   list.querySelectorAll(".delSessionBtn").forEach(btn=>{
     btn.addEventListener("click", (e)=>{
-      const id = e.currentTarget.dataset.id;
-      deleteSessionById(id);
+      deleteSessionById(e.currentTarget.dataset.id);
     });
   });
-}    renderMonthSelect();
+}
 
-    const list = el("historyList");
-    if(!history.length){
-      list.innerHTML = `<div class="card"><div class="muted">Пока нет записей.</div></div>`;
-      return;
-    }
-    list.innerHTML = history.slice(0,10).map(t=>{
-      const body = (t.items || []).map(it=>{
-        const line = (it.sets || []).map(s=>`${s.setNo}: ${s.weight}кг×${s.reps}`).join(" • ");
-        list.querySelectorAll(".delSessionBtn").forEach(btn=>{
-  btn.addEventListener("click", (e)=>{
-    const id = e.currentTarget.dataset.id;
-    deleteSessionById(id);
-  });
-});
-        return `<div style="margin-top:10px">
-          <div style="font-weight:900;font-size:13px">${it.ex}</div>
-          <div class="muted" style="margin-top:2px">${line || "—"}</div>
-        </div>`;
-      }).join("");
-return `
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
-      <div>
-        <div style="font-weight:900">${t.workout}</div>
-        <div class="muted">${fmt(t.date)}</div>
-      </div>
-      <button class="btn secondary delSessionBtn" data-id="${t.id}"
-              style="width:auto;padding:10px 12px">
-        Удалить
-      </button>
-    </div>
-
-    <div class="kpi">${body || `<div class="muted">Нет упражнений.</div>`}</div>
-  </div>
-`;
-    }).join("");
-  
-
-  function buildCsvForMonth(ym){
-    const rows = [["date","month","workout","exercise","setNo","weight","reps"]];
-    history
-      .filter(h=>h.month===ym)
-      .forEach(h=>{
-        (h.items||[]).forEach(it=>{
-          (it.sets||[]).forEach(s=>{
-            rows.push([
-              h.date, h.month, h.workout, it.ex,
-              s.setNo, s.weight, s.reps
-            ]);
-          });
+function buildCsvForMonth(ym){
+  const rows = [["date","month","workout","exercise","setNo","weight","reps"]];
+  history
+    .filter(h=>h.month===ym)
+    .forEach(h=>{
+      (h.items||[]).forEach(it=>{
+        (it.sets||[]).forEach(s=>{
+          rows.push([
+            h.date, h.month, h.workout, it.ex,
+            s.setNo, s.weight, s.reps
+          ]);
         });
       });
+    });
 
-    return rows.map(r=>r.map(csvEscape).join(",")).join("\n");
-  }
+  return rows.map(r=>r.map(csvEscape).join(",")).join("\n");
+}
 
-  el("exportMonth").addEventListener("click", ()=>{
-    const ym = el("monthSelect").value;
-    if(!ym) return alert("Нет данных.");
+el("exportMonth").addEventListener("click", ()=>{
+  const ym = el("monthSelect").value;
+  if(!ym) return alert("Нет данных.");
+  const csv = buildCsvForMonth(ym);
+  downloadText(`workouts_${ym}.csv`, csv);
+});
+
+el("exportAllMonths").addEventListener("click", ()=>{
+  const months = Array.from(new Set(history.map(h=>h.month))).sort();
+  if(!months.length) return alert("Нет данных.");
+  months.forEach(ym=>{
     const csv = buildCsvForMonth(ym);
     downloadText(`workouts_${ym}.csv`, csv);
   });
+});
 
-  el("exportAllMonths").addEventListener("click", ()=>{
-    const months = Array.from(new Set(history.map(h=>h.month))).sort();
-    if(!months.length) return alert("Нет данных.");
-    months.forEach(ym=>{
-      const csv = buildCsvForMonth(ym);
-      downloadText(`workouts_${ym}.csv`, csv);
-    });
-  });
-
-  // ---------------------------
-  // Progress: last vs prev (per exercise)
-  // ---------------------------
-  function buildProgressLastVsPrev(){
-    const logs = [];
-    for(const h of history){
-      for(const it of (h.items||[])){
-        const best = Math.max(...(it.sets||[]).map(s => Number(s.weight||0)), 0);
-        logs.push({ ex: it.ex, date: h.date, best });
-      }
+// ---------------------------
+// Progress: last vs prev (per exercise)
+// ---------------------------
+function buildProgressLastVsPrev(){
+  const logs = [];
+  for(const h of history){
+    for(const it of (h.items||[])){
+      const best = Math.max(...(it.sets||[]).map(s => Number(s.weight||0)), 0);
+      logs.push({ ex: it.ex, date: h.date, best });
     }
-
-    const byEx = new Map();
-    for(const r of logs){
-      if(!byEx.has(r.ex)) byEx.set(r.ex, []);
-      byEx.get(r.ex).push(r);
-    }
-
-    const rows = [];
-    for(const [ex, arr] of byEx.entries()){
-      arr.sort((a,b)=> b.date.localeCompare(a.date));
-      const last = arr[0];
-      const prev = arr[1];
-
-      const lastW = last?.best ?? 0;
-      const prevW = prev?.best ?? 0;
-      const delta = lastW - prevW;
-
-      rows.push({ ex, lastW, prevW, delta });
-    }
-
-    rows.sort((a,b)=> (b.delta - a.delta) || (b.lastW - a.lastW));
-    return rows;
   }
 
-  function renderProgress(){
-    const rows = buildProgressLastVsPrev();
-    const wrap = el("progressTableWrap");
-
-    if(!rows.length){
-      wrap.innerHTML = `<div class="muted">Недостаточно данных.</div>`;
-      return;
-    }
-
-    wrap.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>Упражнение</th>
-            <th>Последний</th>
-            <th>Предыдущий</th>
-            <th>Δ</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(r=>{
-            const cls = r.delta >= 0 ? "deltaPlus" : "deltaMinus";
-            const sign = r.delta >= 0 ? "+" : "";
-            const prevTxt = r.prevW ? `${r.prevW} кг` : "—";
-            return `
-              <tr>
-                <td>${r.ex}</td>
-                <td><b>${r.lastW} кг</b></td>
-                <td>${prevTxt}</td>
-                <td class="${cls}">${r.prevW ? (sign + r.delta + " кг") : "—"}</td>
-              </tr>
-            `;
-          }).join("")}
-        </tbody>
-      </table>
-    `;
+  const byEx = new Map();
+  for(const r of logs){
+    if(!byEx.has(r.ex)) byEx.set(r.ex, []);
+    byEx.get(r.ex).push(r);
   }
+
+  const rows = [];
+  for(const [ex, arr] of byEx.entries()){
+    arr.sort((a,b)=> b.date.localeCompare(a.date));
+    const last = arr[0];
+    const prev = arr[1];
+
+    const lastW = last?.best ?? 0;
+    const prevW = prev?.best ?? 0;
+    const delta = lastW - prevW;
+
+    rows.push({ ex, lastW, prevW, delta });
+  }
+
+  rows.sort((a,b)=> (b.delta - a.delta) || (b.lastW - a.lastW));
+  return rows;
+}
+
+function renderProgress(){
+  const rows = buildProgressLastVsPrev();
+  const wrap = el("progressTableWrap");
+
+  if(!rows.length){
+    wrap.innerHTML = `<div class="muted">Недостаточно данных.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Упражнение</th>
+          <th>Последний</th>
+          <th>Предыдущий</th>
+          <th>Δ</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r=>{
+          const cls = r.delta >= 0 ? "deltaPlus" : "deltaMinus";
+          const sign = r.delta >= 0 ? "+" : "";
+          const prevTxt = r.prevW ? `${r.prevW} кг` : "—";
+          return `
+            <tr>
+              <td>${r.ex}</td>
+              <td><b>${r.lastW} кг</b></td>
+              <td>${prevTxt}</td>
+              <td class="${cls}">${r.prevW ? (sign + r.delta + " кг") : "—"}</td>
+            </tr>
+          `;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+}
 
   // ---------------------------
   // Admin: Load / Copy default / Save
