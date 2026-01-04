@@ -485,11 +485,14 @@ input, select, textarea {
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 
-  import {
-    getAuth,
-    signInWithEmailAndPassword,
-    signOut
-  } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  setPersistence,
+  browserLocalPersistence,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 import {
   getFirestore,
@@ -516,6 +519,64 @@ import {
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+
+  // ===============================
+// АВТОЛОГИН (1 раз вошёл — всегда залогинен)
+// ===============================
+
+// сохраняем сессию на устройстве
+await setPersistence(auth, browserLocalPersistence);
+
+// слушаем состояние входа
+onAuthStateChanged(auth, async (u) => {
+  if (!u) {
+    // НЕ залогинен
+    user = null;
+    profile = null;
+    history = [];
+    PROGRAM = DEFAULT_PROGRAM;
+
+    show("screenLogin", true);
+    show("screenApp", false);
+    show("logoutBtn", false);
+    show("adminTabBtn", false);
+    setSub("Вход");
+    return;
+  }
+
+  // ЗАЛОГИНЕН
+  user = u;
+
+  // программа
+  const loaded = await loadProgramDoc(user.uid);
+  PROGRAM = loaded ?? DEFAULT_PROGRAM;
+
+  // профиль
+  const ref = doc(db, "users", user.uid);
+  const snap = await getDoc(ref);
+  profile = snap.exists() ? snap.data() : { nick: "—" };
+
+  // история
+  await loadHistory();
+
+  el("profileName").textContent = profile.nick || "—";
+  setSub(profile.nick || "—");
+
+  show("screenLogin", false);
+  show("screenApp", true);
+  show("logoutBtn", true);
+
+  // админ ТОЛЬКО gorilla
+  show(
+    "adminTabBtn",
+    user.uid === "TJ4cLJ0pVgb0dkh2R6IDdDS8k6F2"
+  );
+
+  setActiveTabUI("dashboard");
+  renderDashboard();
+  renderHistory();
+  renderProgress();
+});
 
   // Ник -> email
   const NICK_TO_EMAIL = {
@@ -693,61 +754,31 @@ function isAdminLocal(){
   // ---------------------------
   // Login / Logout
   // ---------------------------
-  el("loginBtn").addEventListener("click", async ()=>{
-    const nick = el("nick").value.trim().toLowerCase();
-    const pass = el("pass").value.trim();
+el("loginBtn").addEventListener("click", async ()=>{
+  const nick = el("nick").value.trim().toLowerCase();
+  const pass = el("pass").value.trim();
 
-    if(!nick || !pass){
-      el("loginHint").innerHTML = `<b>Ошибка:</b> Заполни никнейм и пароль.`;
-      return;
-    }
-    const email = NICK_TO_EMAIL[nick];
-    if(!email){
-      el("loginHint").innerHTML = `<b>Ошибка:</b> Нет доступа.`;
-      return;
-    }
+  if(!nick || !pass){
+    el("loginHint").innerHTML = `<b>Ошибка:</b> Заполни никнейм и пароль.`;
+    return;
+  }
 
-    try{
-      const cred = await signInWithEmailAndPassword(auth, email, pass);
-      user = cred.user;
+  const email = NICK_TO_EMAIL[nick];
+  if(!email){
+    el("loginHint").innerHTML = `<b>Ошибка:</b> Нет доступа.`;
+    return;
+  }
 
-      // подгружаем персональную программу пользователя
-      const loaded = await loadProgramDoc(user.uid);
-      PROGRAM = loaded ?? DEFAULT_PROGRAM;
-
-      // profile doc (users/{uid})
-      const ref = doc(db, "users", user.uid);
-      const snap = await getDoc(ref);
-      if(!snap.exists()){
-        await setDoc(ref, { nick, createdAt: Date.now() });
-        profile = { nick };
-      } else {
-        profile = snap.data();
-      }
-
-      await loadHistory();
-
-      el("profileName").textContent = profile.nick;
-      setSub(profile.nick);
-      show("screenLogin", false);
-      show("screenApp", true);
-      show("logoutBtn", true);
-
-      if(isAdminLocal()){
-        show("adminTabBtn", true);
-      } else {
-        show("adminTabBtn", false);
-      }
-
-      setActiveTabUI("dashboard");
-      renderDashboard();
-      renderHistory();
-      renderProgress();
-    }catch(e){
-      el("loginHint").innerHTML = `<b>Ошибка:</b> Неверный никнейм или пароль.`;
-      console.error(e);
-    }
-  });
+  try{
+    // ВАЖНО: ничего больше тут не делаем
+    // Firebase сам сохранит сессию
+    await signInWithEmailAndPassword(auth, email, pass);
+    // дальше всё сделает onAuthStateChanged
+  }catch(e){
+    el("loginHint").innerHTML = `<b>Ошибка:</b> Неверный никнейм или пароль.`;
+    console.error(e);
+  }
+});
 
   el("logoutBtn").addEventListener("click", async ()=>{
     await signOut(auth);
