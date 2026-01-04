@@ -133,33 +133,47 @@
       margin:10px 0 0;
     }
     .alert b{color:var(--danger)}
-    .tabs{
-      display:grid; grid-template-columns:repeat(5,1fr);
-      border:1px solid var(--border);
-      background:var(--panel);
-      border-radius:18px;
-      padding:6px;
-      gap:6px;
-      position:sticky; top:0; z-index:10;
-    }
-    .tab{
-      padding:10px 8px;
-      border-radius:14px;
-      font-size:12px;
-      text-align:center;
-      cursor:pointer;
-      color:var(--muted);
-      user-select:none;
-      border:1px solid transparent;
-    }
-    .tab.active{
-      background:rgba(0,0,0,.06);
-      border-color:var(--border);
-      color:var(--text);
-    }
-    [data-theme="pink"] .tab.active{
-      background:rgba(255,62,168,.10);
-    }
+.tabs{
+  display:flex;
+  gap:6px;
+  border:1px solid var(--border);
+  background:var(--panel);
+  border-radius:18px;
+  padding:6px;
+
+  position:sticky;
+  top:0;
+  z-index:10;
+
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{
+  display:none;
+}
+
+.tab{
+  flex:0 0 auto;
+  padding:10px 10px;
+  border-radius:14px;
+  font-size:12px;
+  text-align:center;
+  cursor:pointer;
+  color:var(--muted);
+  user-select:none;
+  border:1px solid transparent;
+  white-space:nowrap;
+}
+
+.tab.active{
+  background:rgba(0,0,0,.06);
+  border-color:var(--border);
+  color:var(--text);
+}
+[data-theme="pink"] .tab.active{
+  background:rgba(255,62,168,.10);
+}
 
     .grid3{display:grid;grid-template-columns:1fr;gap:10px}
     .workoutCard{
