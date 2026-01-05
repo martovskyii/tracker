@@ -432,13 +432,17 @@
         </div>
 
         <div class="card">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
-            <div>
-              <div style="font-size:16px;font-weight:900" id="exTitle">—</div>
-              <div class="muted">План: <span id="exScheme">—</span></div>
-            </div>
-            <button class="btn secondary" id="videoBtn" style="width:auto;padding:10px 12px">Видео</button>
-          </div>
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+  <div>
+    <div style="font-size:16px;font-weight:900" id="exTitle">—</div>
+    <div class="muted">План: <span id="exScheme">—</span></div>
+  </div>
+
+  <div style="display:flex; gap:8px; align-items:center;">
+    <button class="btn secondary" id="videoBtn" style="width:auto;padding:10px 12px">Видео</button>
+    <button class="btn secondary" id="machineBtn" style="width:auto;padding:10px 12px; display:none;">Тренажёр</button>
+  </div>
+</div>
 
           <div class="kpi" style="margin-top:12px">
             <div class="row">
@@ -710,6 +714,7 @@ function validateProgramShape(p){
       if(!ex || typeof ex !== "object") return `В "${wName}" есть не-объект`;
       if(!ex.name || !ex.scheme) return `В "${wName}" у упражнения нет name/scheme`;
       if(!ex.video) ex.video = "https://drive.google.com/";
+      if(!ex.machine) ex.machine = ""; // <-- добавили
     }
   }
   return null;
@@ -928,6 +933,12 @@ async function deleteWorkoutFromProgram(workoutName){
 
     el("exTitle").textContent = ex.name;
     el("exScheme").textContent = ex.scheme;
+    // кнопка "Тренажёр" — показываем только если есть ссылка
+const mBtn = el("machineBtn");
+if(mBtn){
+  const has = !!(ex.machine && String(ex.machine).trim());
+  mBtn.style.display = has ? "" : "none";
+}
 
     if(resetSetNo){
       const sets = session.items[ex.name] || [];
@@ -943,6 +954,40 @@ async function deleteWorkoutFromProgram(workoutName){
     if(!ex?.video) return;
     window.open(ex.video, "_blank", "noopener,noreferrer");
   });
+function openMachineModal(url){
+  const modal = el("machineModal");
+  const img = el("machineImg");
+  const err = el("machineErr");
+
+  err.style.display = "none";
+  img.onload = () => { err.style.display = "none"; };
+  img.onerror = () => { err.style.display = ""; };
+
+  img.src = url;
+  modal.style.display = "";
+}
+
+function closeMachineModal(){
+  const modal = el("machineModal");
+  const img = el("machineImg");
+  modal.style.display = "none";
+  img.src = "";
+}
+
+el("machineBtn")?.addEventListener("click", ()=>{
+  const ex = getExObj();
+  const url = ex?.machine ? String(ex.machine).trim() : "";
+  if(!url) return;
+  openMachineModal(url);
+});
+
+el("machineClose")?.addEventListener("click", closeMachineModal);
+el("machineBackdrop")?.addEventListener("click", closeMachineModal);
+
+// ESC (на десктопе)
+window.addEventListener("keydown", (e)=>{
+  if(e.key === "Escape") closeMachineModal();
+});
 
   // Save set (in session)
   el("saveSet").addEventListener("click", ()=>{
@@ -1381,5 +1426,30 @@ renderWorkoutSelect();
   show("adminTabBtn", false);
   setSub("Вход");
 </script>
+
+
+<div id="machineModal" style="display:none; position:fixed; inset:0; z-index:9999;">
+  <div id="machineBackdrop" style="position:absolute; inset:0; background:rgba(0,0,0,.6);"></div>
+
+  <div style="position:relative; margin:8vh auto 0; width:min(92vw, 420px);">
+    <div class="card" style="padding:12px; margin:0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <div style="font-weight:900;">Тренажёр</div>
+        <button class="iconbtn" id="machineClose" type="button" title="Закрыть">✕</button>
+      </div>
+
+      <div style="margin-top:10px;">
+        <img id="machineImg" src="" alt="Тренажёр"
+             style="width:100%; height:auto; border-radius:18px; border:1px solid var(--border); display:block;" />
+      </div>
+
+      <div class="muted" id="machineErr" style="display:none; margin-top:10px;">
+        Не удалось загрузить изображение. Проверь ссылку.
+      </div>
+    </div>
+  </div>
+</div>
+
+
 </body>
 </html>
