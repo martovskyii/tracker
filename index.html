@@ -931,6 +931,13 @@ async function deleteWorkoutFromProgram(workoutName){
       return;
     }
 
+    // кнопка "Видео" — показываем только если есть ссылка
+const vBtn = el("videoBtn");
+if(vBtn){
+  const hasV = isValidVideoUrl(ex.video);
+  vBtn.style.display = hasV ? "" : "none";
+}
+
     el("exTitle").textContent = ex.name;
     el("exScheme").textContent = ex.scheme;
     // кнопка "Тренажёр" — показываем только если есть ссылка
@@ -949,11 +956,63 @@ if(mBtn){
     renderSetsTable();
   }
 
-  el("videoBtn").addEventListener("click", ()=>{
-    const ex = getExObj();
-    if(!ex?.video) return;
-    window.open(ex.video, "_blank", "noopener,noreferrer");
-  });
+function isValidVideoUrl(url){
+  if(!url) return false;
+  const u = String(url).trim();
+  if(!u || u === "-" ) return false;
+  return /^https?:\/\//i.test(u);
+}
+
+function openVideoModal(url){
+  const modal = el("videoModal");
+  const vid = el("videoPlayer");
+  const err = el("videoErr");
+
+  err.style.display = "none";
+
+  // сброс
+  vid.pause();
+  vid.removeAttribute("src");
+  vid.load();
+
+  // ставим src
+  vid.src = url;
+
+  // если видео не грузится (403/404/тип не поддерживается)
+  vid.onloadeddata = () => { err.style.display = "none"; };
+  vid.onerror = () => { err.style.display = ""; };
+
+  modal.style.display = "";
+}
+
+function closeVideoModal(){
+  const modal = el("videoModal");
+  const vid = el("videoPlayer");
+
+  modal.style.display = "none";
+  vid.pause();
+  vid.removeAttribute("src");
+  vid.load();
+}
+
+el("videoBtn")?.addEventListener("click", ()=>{
+  const ex = getExObj();
+  const url = ex?.video ? String(ex.video).trim() : "";
+  if(!isValidVideoUrl(url)) return;
+  openVideoModal(url);
+});
+
+el("videoClose")?.addEventListener("click", closeVideoModal);
+el("videoBackdrop")?.addEventListener("click", closeVideoModal);
+
+// ESC закрывает и видео, и тренажёр
+window.addEventListener("keydown", (e)=>{
+  if(e.key === "Escape"){
+    closeVideoModal();
+    closeMachineModal();
+  }
+});
+
 function openMachineModal(url){
   const modal = el("machineModal");
   const img = el("machineImg");
@@ -1450,6 +1509,31 @@ renderWorkoutSelect();
   </div>
 </div>
 
+<div id="videoModal" style="display:none; position:fixed; inset:0; z-index:9999;">
+  <div id="videoBackdrop" style="position:absolute; inset:0; background:rgba(0,0,0,.6);"></div>
+
+  <div style="position:relative; margin:8vh auto 0; width:min(92vw, 420px);">
+    <div class="card" style="padding:12px; margin:0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <div style="font-weight:900;">Видео</div>
+        <button class="iconbtn" id="videoClose" type="button" title="Закрыть">✕</button>
+      </div>
+
+      <div style="margin-top:10px;">
+        <video id="videoPlayer"
+               controls
+               playsinline
+               preload="metadata"
+               style="width:100%; height:auto; border-radius:18px; border:1px solid var(--border); display:block; background:#000;">
+        </video>
+      </div>
+
+      <div class="muted" id="videoErr" style="display:none; margin-top:10px;">
+        Не удалось загрузить видео. Проверь ссылку или формат.
+      </div>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
