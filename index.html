@@ -6,273 +6,280 @@
   <title>Workout Tracker</title>
   <meta name="theme-color" content="#0b0b0c" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-  <style>
-    :root{
-      --bg:#0b0b0c;
-      --panel:#121214;
-      --border:#2a2a2a;
-      --text:#ffffff;
-      --muted:rgba(255,255,255,.70);
-      --accent:#ffffff;
-      --btn:#ffffff;
-      --btnText:#000000;
-      --btn2:#1a1a1b;
-      --btn2Text:#ffffff;
-      --danger:#ff6b6b;
-      --success:#32d583;
-    }
-[data-theme="pink"]{
-  /* фон и карточки — тёмные */
-  --bg:#0f0b0e;
-  --panel:#161116;
-  --border:#2a1d27;
+<style>
+  :root{
+    --bg:#0b0b0c;
+    --panel:#121214;
+    --border:#2a2a2a;
+    --text:#ffffff;
+    --muted:rgba(255,255,255,.70);
+    --accent:#ffffff;
+    --btn:#ffffff;
+    --btnText:#000000;
+    --btn2:#1a1a1b;
+    --btn2Text:#ffffff;
+    --danger:#ff6b6b;
+    --success:#32d583;
+  }
 
-  /* текст — светлый */
-  --text:#ffffff;
-  --muted:rgba(255,255,255,.65);
+  /* Pink theme: тёмная база + розовый акцент */
+  [data-theme="pink"]{
+    --bg:#0f0b0e;
+    --panel:#161116;
+    --border:#2a1d27;
+    --text:#ffffff;
+    --muted:rgba(255,255,255,.65);
+    --accent:#dd77af;
+    --btn:#dd77af;
+    --btnText:#ffffff;
+    --btn2:#1e161c;
+    --btn2Text:#ffffff;
+  }
 
-  /* розовый акцент — как был */
-  --accent:#dd77af;
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+  }
+  .wrap{max-width:420px;margin:0 auto;padding:16px 14px 28px}
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; margin:8px 0 14px;
+  }
+  .brand{display:flex; align-items:center; gap:10px}
+  .logo{
+    width:40px;height:40px;border-radius:16px;
+    border:1px solid var(--border);
+    background:var(--panel);
+    display:grid;place-items:center;
+    font-weight:900;color:var(--accent);
+  }
+  .title{line-height:1.1}
+  .title b{display:block;font-size:14px}
+  .title span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+  .right{display:flex;align-items:center;gap:10px}
+  .switch{
+    display:flex; align-items:center; gap:8px;
+    border:1px solid var(--border); background:var(--panel);
+    padding:6px 10px;border-radius:999px;
+    font-size:12px;color:var(--muted);
+  }
+  .toggle{
+    width:42px;height:24px;border-radius:999px;
+    border:1px solid var(--border);
+    background:rgba(0,0,0,.06);
+    position:relative; cursor:pointer;
+  }
+  .knob{
+    position:absolute; top:2px; left:2px;
+    width:20px; height:20px; border-radius:999px;
+    background:var(--btn);
+    transition:transform .18s ease;
+  }
+  [data-theme="pink"] .knob{ transform:translateX(18px); }
 
-  /* кнопки */
-  --btn:#dd77af;
-  --btnText:#ffffff;
+  .iconbtn{
+    width:40px;height:40px;border-radius:16px;
+    border:1px solid var(--border); background:var(--panel);
+    color:var(--text); cursor:pointer;
+  }
+  .card{
+    border:1px solid var(--border);
+    background:var(--panel);
+    border-radius:22px;
+    padding:14px;
+    margin:12px 0;
+  }
+  h2{margin:0 0 6px;font-size:18px}
+  .muted{color:var(--muted);font-size:13px}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
 
-  --btn2:#1e161c;
-  --btn2Text:#ffffff;
-}
+  input, select, textarea{
+    width:100%;
+    padding:12px 12px;
+    border-radius:14px;
+    border:1px solid var(--border);
+    background:transparent;
+    color:var(--text);
+    outline:none;
 
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background:var(--bg);
-      color:var(--text);
-    }
-    .wrap{max-width:420px;margin:0 auto;padding:16px 14px 28px}
-    .topbar{
-      display:flex; align-items:center; justify-content:space-between;
-      gap:12px; margin:8px 0 14px;
-    }
-    .brand{display:flex; align-items:center; gap:10px}
-    .logo{
-      width:40px;height:40px;border-radius:16px;
-      border:1px solid var(--border);
-      background:var(--panel);
-      display:grid;place-items:center;
-      font-weight:900;color:var(--accent);
-    }
-    .title{line-height:1.1}
-    .title b{display:block;font-size:14px}
-    .title span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
-    .right{display:flex;align-items:center;gap:10px}
-    .switch{
-      display:flex; align-items:center; gap:8px;
-      border:1px solid var(--border); background:var(--panel);
-      padding:6px 10px;border-radius:999px;
-      font-size:12px;color:var(--muted);
-    }
-    .toggle{
-      width:42px;height:24px;border-radius:999px;
-      border:1px solid var(--border);
-      background:rgba(0,0,0,.06);
-      position:relative; cursor:pointer;
-    }
-    .knob{
-      position:absolute; top:2px; left:2px;
-      width:20px; height:20px; border-radius:999px;
-      background:var(--btn);
-      transition:transform .18s ease;
-    }
-    [data-theme="pink"] .knob{ transform:translateX(18px); }
+    /* iOS Safari: не зумит при фокусе */
+    font-size:16px;
+    -webkit-text-size-adjust:100%;
+  }
 
-    .iconbtn{
-      width:40px;height:40px;border-radius:16px;
-      border:1px solid var(--border); background:var(--panel);
-      color:var(--text); cursor:pointer;
-    }
-    .card{
-      border:1px solid var(--border);
-      background:var(--panel);
-      border-radius:22px;
-      padding:14px;
-      margin:12px 0;
-    }
-    h2{margin:0 0 6px;font-size:18px}
-    .muted{color:var(--muted);font-size:13px}
-    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
-    input, select, textarea{
-      width:100%;
-      padding:12px 12px;
-      border-radius:14px;
-      border:1px solid var(--border);
-      background:transparent;
-      color:var(--text);
-      outline:none;
-    }
-    input::placeholder{color:rgba(255,255,255,.35)}
-    [data-theme="pink"] input::placeholder{color:rgba(27,16,32,.35)}
+  input::placeholder{color:rgba(255,255,255,.35)}
+  [data-theme="pink"] input::placeholder{color:rgba(255,255,255,.35)}
 
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .btn{
-      width:100%;
-      border:none;
-      padding:12px 14px;
-      border-radius:16px;
-      cursor:pointer;
-      font-weight:700;
-    }
-    .btn.primary{background:var(--btn);color:var(--btnText)}
-    .btn.secondary{background:var(--btn2);color:var(--btn2Text);border:1px solid var(--border)}
-    .btn:disabled{opacity:.55;cursor:not-allowed}
-    .alert{
-      border:1px solid var(--border);
-      border-radius:16px;
-      padding:10px 12px;
-      font-size:13px;color:var(--muted);
-      margin:10px 0 0;
-    }
-    .alert b{color:var(--danger)}
-.tabs{
-  display:flex;
-  gap:6px;
-  border:1px solid var(--border);
-  background:var(--panel);
-  border-radius:18px;
-  padding:6px;
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .btn{
+    width:100%;
+    border:none;
+    padding:12px 14px;
+    border-radius:16px;
+    cursor:pointer;
+    font-weight:700;
+  }
+  .btn.primary{background:var(--btn);color:var(--btnText)}
+  .btn.secondary{background:var(--btn2);color:var(--btn2Text);border:1px solid var(--border)}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .alert{
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:10px 12px;
+    font-size:13px;color:var(--muted);
+    margin:10px 0 0;
+  }
+  .alert b{color:var(--danger)}
 
-  position:sticky;
-  top:0;
-  z-index:10;
+  /* Tabs: горизонтальный скролл */
+  .tabs{
+    display:flex;
+    gap:6px;
+    border:1px solid var(--border);
+    background:var(--panel);
+    border-radius:18px;
+    padding:6px;
+    position:sticky; top:0; z-index:10;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .tabs::-webkit-scrollbar{display:none;}
 
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-  scrollbar-width:none;
-}
-.tabs::-webkit-scrollbar{
-  display:none;
-}
+  .tab{
+    flex:0 0 auto;
+    padding:10px 10px;
+    border-radius:14px;
+    font-size:12px;
+    text-align:center;
+    cursor:pointer;
+    color:var(--muted);
+    user-select:none;
+    border:1px solid transparent;
+    white-space:nowrap;
+  }
+  .tab.active{
+    background:rgba(0,0,0,.06);
+    border-color:var(--border);
+    color:var(--text);
+  }
+  [data-theme="pink"] .tab.active{
+    background:rgba(255,62,168,.10);
+  }
 
-.tab{
-  flex:0 0 auto;
-  padding:10px 10px;
-  border-radius:14px;
-  font-size:12px;
-  text-align:center;
-  cursor:pointer;
-  color:var(--muted);
-  user-select:none;
-  border:1px solid transparent;
-  white-space:nowrap;
-}
+  .grid3{display:grid;grid-template-columns:1fr;gap:10px}
+  .workoutCard{
+    border:1px solid var(--border);
+    background:var(--panel);
+    border-radius:22px;
+    padding:14px;
+    cursor:pointer;
+  }
+  .workoutCard:hover{opacity:.95}
+  .workoutCard h3{margin:0;font-size:16px}
 
-.tab.active{
-  background:rgba(0,0,0,.06);
-  border-color:var(--border);
-  color:var(--text);
-}
-[data-theme="pink"] .tab.active{
-  background:rgba(255,62,168,.10);
-}
+  .pill{
+    display:inline-block;
+    padding:7px 10px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:transparent;
+    color:var(--muted);
+    font-size:12px;
+    margin:6px 6px 0 0;
+    cursor:pointer;
+  }
+  .pill.active{
+    background:var(--btn);
+    color:var(--btnText);
+    border-color:transparent;
+  }
 
-    .grid3{display:grid;grid-template-columns:1fr;gap:10px}
-    .workoutCard{
-      border:1px solid var(--border);
-      background:var(--panel);
-      border-radius:22px;
-      padding:14px;
-      cursor:pointer;
-    }
-    .workoutCard:hover{opacity:.95}
-    .workoutCard h3{margin:0;font-size:16px}
-    .pill{
-      display:inline-block;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid var(--border);
-      background:transparent;
-      color:var(--muted);
-      font-size:12px;
-      margin:6px 6px 0 0;
-      cursor:pointer;
-    }
-    .pill.active{
-      background:var(--btn);
-      color:var(--btnText);
-      border-color:transparent;
-    }
+  table{
+    width:100%;
+    border-collapse:collapse;
+    overflow:hidden;
+    border-radius:18px;
+    border:1px solid var(--border);
+  }
+  th, td{
+    padding:10px 10px;
+    border-bottom:1px solid rgba(255,255,255,.10);
+    font-size:13px;
+    text-align:left;
+  }
+  [data-theme="pink"] th, [data-theme="pink"] td{
+    border-bottom:1px solid rgba(255,255,255,.10);
+  }
+  th{color:var(--muted);font-weight:700;background:rgba(255,255,255,.06)}
+  [data-theme="pink"] th{background:rgba(255,255,255,.06)}
+  tr:last-child td{border-bottom:none}
 
-    table{
-      width:100%;
-      border-collapse:collapse;
-      overflow:hidden;
-      border-radius:18px;
-      border:1px solid var(--border);
-    }
-    th, td{
-      padding:10px 10px;
-      border-bottom:1px solid rgba(0,0,0,.08);
-      font-size:13px;
-      text-align:left;
-    }
-    :root th, :root td{
-      border-bottom:1px solid rgba(255,255,255,.10);
-    }
-    [data-theme="pink"] th, [data-theme="pink"] td{
-      border-bottom:1px solid rgba(0,0,0,.08);
-    }
-    th{color:var(--muted);font-weight:700;background:rgba(0,0,0,.04)}
-    :root th{background:rgba(255,255,255,.06)}
-    [data-theme="pink"] th{background:rgba(0,0,0,.04)}
-    tr:last-child td{border-bottom:none}
+  .actions{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
-    .actions{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
-    .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .kpi{
+    border:1px solid var(--border);
+    background:rgba(255,255,255,.04);
+    border-radius:18px;
+    padding:12px;
+    margin-top:10px;
+  }
 
-    .kpi{
-      border:1px solid var(--border);
-      background:rgba(0,0,0,.03);
-      border-radius:18px;
-      padding:12px;
-      margin-top:10px;
-    }
-    :root .kpi{background:rgba(255,255,255,.04)}
-    [data-theme="pink"] .kpi{background:rgba(0,0,0,.03)}
-    .bar{
-      height:10px;border-radius:999px;
-      background:rgba(0,0,0,.06);
-      overflow:hidden;border:1px solid var(--border);
-      margin-top:8px;
-    }
-    :root .bar{background:rgba(255,255,255,.10)}
-    [data-theme="pink"] .bar{background:rgba(0,0,0,.06)}
-    .bar > div{
-      height:100%;
-      width:0%;
-      background:var(--btn);
-      transition:width .25s ease;
-    }
-    .deltaPlus{color:var(--success);font-weight:900}
-    .deltaMinus{color:var(--danger);font-weight:900}
-    .footer{margin-top:18px;text-align:center;font-size:11px;color:var(--muted)}
+  .bar{
+    height:10px;border-radius:999px;
+    background:rgba(255,255,255,.10);
+    overflow:hidden;border:1px solid var(--border);
+    margin-top:8px;
+  }
+  .bar > div{
+    height:100%;
+    width:0%;
+    background:var(--btn);
+    transition:width .25s ease;
+  }
 
+  .deltaPlus{color:var(--success);font-weight:900}
+  .deltaMinus{color:var(--danger);font-weight:900}
+  .footer{margin-top:18px;text-align:center;font-size:11px;color:var(--muted)}
 
-    /* iOS Safari: не зумить при фокусе на полях */
-input, select, textarea {
-  font-size: 16px; /* ключевой фикс */
-}
-
-/* если хочешь одинаковый размер и в карточках/лейблах */
-label { font-size: 12px; } /* можно оставить как было */
-
-/* иногда iOS меняет вид полей — это норм, но можно слегка стабилизировать */
-input, select, textarea {
-  -webkit-text-size-adjust: 100%;
-}
-
-
-
-  </style>
+  /* ---------------------------
+     FIX: Progress table on iPhone
+     --------------------------- */
+  .tableScroll{
+    width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .tableScroll table{
+    width:100%;
+    min-width:520px; /* чтобы Δ не уезжал */
+  }
+  #progressTableWrap th,
+  #progressTableWrap td{
+    white-space:nowrap;
+  }
+  #progressTableWrap th:first-child,
+  #progressTableWrap td:first-child{
+    white-space:normal;
+    word-break:break-word;
+    width:48%;
+  }
+  #progressTableWrap th:nth-child(2),
+  #progressTableWrap td:nth-child(2),
+  #progressTableWrap th:nth-child(3),
+  #progressTableWrap td:nth-child(3){
+    width:18%;
+  }
+  #progressTableWrap th:nth-child(4),
+  #progressTableWrap td:nth-child(4){
+    width:16%;
+    text-align:right;
+  }
+</style>
 </head>
 
 <body>
@@ -301,7 +308,7 @@ input, select, textarea {
     <!-- LOGIN -->
     <div id="screenLogin" class="card">
       <h2>Вход</h2>
-  <!--  <div class="muted">Вход по никнейму и паролю. Доступ только 2 пользователям.</div>  -->
+      <div class="muted">Вход по никнейму и паролю. Доступ только 2 пользователям.</div>
 
       <label>Никнейм</label>
       <input id="nick" placeholder="nickname" />
@@ -499,28 +506,31 @@ input, select, textarea {
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  signOut,
-  setPersistence,
-  browserLocalPersistence,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+  import {
+    getAuth,
+    signInWithEmailAndPassword,
+    signOut,
+    setPersistence,
+    browserLocalPersistence,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  orderBy,
-  deleteDoc
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    setDoc,
+    collection,
+    addDoc,
+    getDocs,
+    query,
+    orderBy,
+    deleteDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
+  // ---------------------------
+  // Firebase
+  // ---------------------------
   const firebaseConfig = {
     apiKey: "AIzaSyCDV7oyY707TGZpaaBbKfgZvpAJ8mZ8QdM",
     authDomain: "workout-tracker-95212121.firebaseapp.com",
@@ -534,79 +544,22 @@ import {
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // ===============================
-// АВТОЛОГИН (1 раз вошёл — всегда залогинен)
-// ===============================
-
-// сохраняем сессию на устройстве
-await setPersistence(auth, browserLocalPersistence);
-
-// слушаем состояние входа
-onAuthStateChanged(auth, async (u) => {
-  if (!u) {
-    // НЕ залогинен
-    user = null;
-    profile = null;
-    history = [];
-    PROGRAM = DEFAULT_PROGRAM;
-
-    show("screenLogin", true);
-    show("screenApp", false);
-    show("logoutBtn", false);
-    show("adminTabBtn", false);
-    setSub("Вход");
-    return;
-  }
-
-  // ЗАЛОГИНЕН
-  user = u;
-
-  // программа
-  const loaded = await loadProgramDoc(user.uid);
-  PROGRAM = loaded ?? DEFAULT_PROGRAM;
-
-  // профиль
-  const ref = doc(db, "users", user.uid);
-  const snap = await getDoc(ref);
-  profile = snap.exists() ? snap.data() : { nick: "—" };
-
-  // история
-  await loadHistory();
-
-  el("profileName").textContent = profile.nick || "—";
-  setSub(profile.nick || "—");
-
-  show("screenLogin", false);
-  show("screenApp", true);
-  show("logoutBtn", true);
-
-  // админ ТОЛЬКО gorilla
-  show(
-    "adminTabBtn",
-    user.uid === "TJ4cLJ0pVgb0dkh2R6IDdDS8k6F2"
-  );
-
-  setActiveTabUI("dashboard");
-  renderDashboard();
-  renderHistory();
-  renderProgress();
-});
-
-  // Ник -> email
+  // ---------------------------
+  // Access
+  // ---------------------------
   const NICK_TO_EMAIL = {
     gorilla: "gorilla@app.local",
     miu_miu: "girl@app.local"
   };
 
-  // Админы по UID
-// Админ — только gorilla
-const ADMIN_UID = "TJ4cLJ0pVgb0dkh2R6IDdDS8k6F2";
+  const ADMIN_UID = "TJ4cLJ0pVgb0dkh2R6IDdDS8k6F2";
+  function isAdminLocal(){
+    return !!user && user.uid === ADMIN_UID;
+  }
 
-function isAdminLocal(){
-  return !!user && user.uid === ADMIN_UID;
-}
-
-  // Дефолтная программа (если в Firestore её ещё нет)
+  // ---------------------------
+  // Default program
+  // ---------------------------
   const DEFAULT_PROGRAM = {
     "Вверх": [
       {name:"Тяга верхнего блока / гравитрон", scheme:"4×15 | 12", video:"https://drive.google.com/"},
@@ -627,11 +580,22 @@ function isAdminLocal(){
       {name:"Присед в Смите (средняя / узкая стойка)", scheme:"5×12 | 10", video:"https://drive.google.com/"},
       {name:"Жим ногами в платформе", scheme:"4×10", video:"https://drive.google.com/"},
       {name:"Сгибание ног сидя", scheme:"4×12 | 10", video:"https://drive.google.com/"}
-    ],
+    ]
   };
 
-  // Текущая программа (для залогиненного пользователя)
   let PROGRAM = DEFAULT_PROGRAM;
+
+  // ---------------------------
+  // State
+  // ---------------------------
+  let user = null;           // Firebase user
+  let profile = null;        // {nick}
+  let history = [];          // sessions
+  let activeTab = "dashboard";
+
+  let currentWorkout = null;
+  let currentExercise = null;
+  let session = { date: todayISO(), workout:null, items:{} }; // items[exName] = sets[]
 
   // ---------------------------
   // Helpers
@@ -639,7 +603,6 @@ function isAdminLocal(){
   function el(id){ return document.getElementById(id); }
   function show(id, yes=true){ el(id).style.display = yes ? "" : "none"; }
   function setSub(txt){ el("sub").textContent = txt; }
-
 
   function adminMsg(text, isError=false){
     const box = el("adminStatus");
@@ -652,15 +615,18 @@ function isAdminLocal(){
     const tz = d.getTimezoneOffset()*60000;
     return new Date(Date.now()-tz).toISOString().slice(0,10);
   }
+
   function fmt(iso){
     const [y,m,d] = iso.split("-");
     return `${d}.${m}.${y}`;
   }
+
   function monthKey(iso){ return iso.slice(0,7); } // YYYY-MM
   function monthTitle(ym){
     const [y,m] = ym.split("-");
     return `${m}.${y}`;
   }
+
   function downloadText(filename, text){
     const blob = new Blob([text], {type:"text/csv;charset=utf-8"});
     const url = URL.createObjectURL(blob);
@@ -668,6 +634,7 @@ function isAdminLocal(){
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
   }
+
   function csvEscape(v){
     const s = String(v ?? "");
     return `"${s.replaceAll('"','""')}"`;
@@ -678,6 +645,7 @@ function isAdminLocal(){
   // ---------------------------
   const savedTheme = localStorage.getItem("wt_theme");
   if(savedTheme === "pink") document.documentElement.setAttribute("data-theme","pink");
+
   el("themeToggle").addEventListener("click", ()=>{
     const isPink = document.documentElement.getAttribute("data-theme")==="pink";
     if(isPink){
@@ -723,30 +691,22 @@ function isAdminLocal(){
   }
 
   // ---------------------------
-  // State
-  // ---------------------------
-  let user = null;           // Firebase user
-  let profile = null;        // {nick}
-  let history = [];          // loaded from Firestore
-  let activeTab = "dashboard";
-
-  let currentWorkout = null;
-  let currentExercise = null;
-  let session = { date: todayISO(), workout:null, items:{} }; // items[exName] = sets[]
-
-  // ---------------------------
   // Tabs
   // ---------------------------
   function setActiveTabUI(tab){
     activeTab = tab;
-    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab===tab));
+
+    document.querySelectorAll(".tab").forEach(t => {
+      t.classList.toggle("active", t.dataset.tab===tab);
+    });
+
     ["dashboard","select","workout","history","progress","admin"].forEach(k=>{
       el("tab-"+k).style.display = (k===tab) ? "" : "none";
     });
   }
 
   document.querySelectorAll(".tab").forEach(t=>{
-    t.addEventListener("click", async ()=>{
+    t.addEventListener("click", ()=>{
       const tab = t.dataset.tab;
 
       if(tab==="history"){ setActiveTabUI("history"); renderHistory(); return; }
@@ -766,50 +726,7 @@ function isAdminLocal(){
   el("goProgress").addEventListener("click", ()=> { setActiveTabUI("progress"); renderProgress(); });
 
   // ---------------------------
-  // Login / Logout
-  // ---------------------------
-el("loginBtn").addEventListener("click", async ()=>{
-  const nick = el("nick").value.trim().toLowerCase();
-  const pass = el("pass").value.trim();
-
-  if(!nick || !pass){
-    el("loginHint").innerHTML = `<b>Ошибка:</b> Заполни никнейм и пароль.`;
-    return;
-  }
-
-  const email = NICK_TO_EMAIL[nick];
-  if(!email){
-    el("loginHint").innerHTML = `<b>Ошибка:</b> Нет доступа.`;
-    return;
-  }
-
-  try{
-    // ВАЖНО: ничего больше тут не делаем
-    // Firebase сам сохранит сессию
-    await signInWithEmailAndPassword(auth, email, pass);
-    // дальше всё сделает onAuthStateChanged
-  }catch(e){
-    el("loginHint").innerHTML = `<b>Ошибка:</b> Неверный никнейм или пароль.`;
-    console.error(e);
-  }
-});
-
-  el("logoutBtn").addEventListener("click", async ()=>{
-    await signOut(auth);
-    user = null; profile = null; history = [];
-    PROGRAM = DEFAULT_PROGRAM;
-
-    el("nick").value=""; el("pass").value="";
-el("loginHint").style.display = "none";
-el("loginHint").innerHTML = "";    setSub("Вход");
-    show("screenLogin", true);
-    show("screenApp", false);
-    show("logoutBtn", false);
-    show("adminTabBtn", false);
-  });
-
-  // ---------------------------
-  // Load from Firestore
+  // Load sessions
   // ---------------------------
   async function loadHistory(){
     if(!user) return;
@@ -817,25 +734,27 @@ el("loginHint").innerHTML = "";    setSub("Вход");
     const snap = await getDocs(qy);
     history = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   }
-async function deleteSessionById(sessionId){
-  if(!user) return;
 
-  const ok = confirm("Удалить эту тренировку? Действие нельзя отменить.");
-  if(!ok) return;
+  async function deleteSessionById(sessionId){
+    if(!user) return;
 
-  try{
-    await deleteDoc(doc(db, "users", user.uid, "sessions", sessionId));
-    await loadHistory();
-    renderDashboard();
-    renderHistory();
-    renderProgress();
-  }catch(e){
-    console.error(e);
-    alert("Не удалось удалить тренировку. Проверь доступ/Rules.");
+    const ok = confirm("Удалить эту тренировку? Действие нельзя отменить.");
+    if(!ok) return;
+
+    try{
+      await deleteDoc(doc(db, "users", user.uid, "sessions", sessionId));
+      await loadHistory();
+      renderDashboard();
+      renderHistory();
+      renderProgress();
+    }catch(e){
+      console.error(e);
+      alert("Не удалось удалить тренировку. Проверь доступ/Rules.");
+    }
   }
-}
+
   // ---------------------------
-  // Select workout
+  // Workout selection
   // ---------------------------
   document.querySelectorAll(".workoutCard").forEach(c=>{
     c.addEventListener("click", ()=>{
@@ -846,6 +765,7 @@ async function deleteSessionById(sessionId){
   function startWorkout(w){
     currentWorkout = w;
     session = { date: todayISO(), workout:w, items:{} };
+
     el("wName").textContent = w;
     el("wDate").textContent = fmt(session.date);
 
@@ -868,7 +788,9 @@ async function deleteSessionById(sessionId){
 
   function selectExercise(name){
     currentExercise = name;
-    document.querySelectorAll("#exPills .pill").forEach(p=> p.classList.toggle("active", p.textContent===name));
+    document.querySelectorAll("#exPills .pill").forEach(p=>{
+      p.classList.toggle("active", p.textContent===name);
+    });
     renderExercise(true);
   }
 
@@ -935,6 +857,7 @@ async function deleteSessionById(sessionId){
       wrap.innerHTML = "Пока нет подходов.";
       return;
     }
+
     wrap.className = "";
     wrap.innerHTML = `
       <table>
@@ -957,257 +880,240 @@ async function deleteSessionById(sessionId){
   }
 
   // Finish workout -> save to Firestore
-  // Finish workout -> save to Firestore
-el("finishBtn").addEventListener("click", async ()=>{
-  if(!user || !session.workout) { setActiveTabUI("dashboard"); return; }
+  el("finishBtn").addEventListener("click", async ()=>{
+    if(!user || !session.workout) { setActiveTabUI("dashboard"); return; }
 
-  const items = Object.entries(session.items).map(([ex, sets])=>({ ex, sets }));
-  const payload = {
-    date: session.date,
-    month: monthKey(session.date),
-    workout: session.workout,
-    items,
-    createdAt: Date.now()
-  };
+    const items = Object.entries(session.items).map(([ex, sets])=>({ ex, sets }));
+    const payload = {
+      date: session.date,
+      month: monthKey(session.date),
+      workout: session.workout,
+      items,
+      createdAt: Date.now()
+    };
 
-  try{
-    await addDoc(collection(db, "users", user.uid, "sessions"), payload);
-    await loadHistory();
-    renderDashboard();
-    renderHistory();
-    renderProgress();
-    setActiveTabUI("dashboard");
-  }catch(e){
-    console.error(e);
-    alert("Не удалось сохранить. Проверь Rules/доступ.");
-  }
-});
-
-// ---------------------------
-// Dashboard
-// ---------------------------
-function weekRangeISO(){
-  const now = new Date();
-
-  // делаем дату "сегодня" без времени, в локальной зоне
-  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  // понедельник = 0..6 (где 0 = Monday)
-  const day = (d.getDay() + 6) % 7;
-
-  const monday = new Date(d);
-  monday.setDate(d.getDate() - day);
-
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-
-  // в ISO yyyy-mm-dd (локально)
-  const toISO = (x)=>{
-    const tz = x.getTimezoneOffset()*60000;
-    return new Date(x.getTime()-tz).toISOString().slice(0,10);
-  };
-
-  return { start: toISO(monday), end: toISO(sunday) };
-}
-
-function renderDashboard(){
-  el("today").textContent = "Сегодня: " + fmt(todayISO());
-
-  const GOAL_PER_WEEK = 3;
-
-  const { start, end } = weekRangeISO();
-  // dates у тебя в формате YYYY-MM-DD, можно сравнивать строками
-  const count = history.filter(h => h.date >= start && h.date <= end).length;
-
-  // тот же id monthStat, просто показываем неделю
-  el("monthStat").textContent = `${count} / ${GOAL_PER_WEEK} тренировок`;
-
-  const pct = Math.min(100, Math.round((count / GOAL_PER_WEEK) * 100));
-  el("monthBar").style.width = pct + "%";
-
-  const last = history[0];
-  if(!last){
-    el("lastWorkout").textContent = "Пока нет записей.";
-  } else {
-    el("lastWorkout").innerHTML = `
-      <div style="font-weight:900">${last.workout}</div>
-      <div class="muted">${fmt(last.date)} • Упражнений: ${(last.items||[]).length}</div>
-    `;
-  }
-}
-
-// ---------------------------
-// History + Export
-// ---------------------------
-function renderMonthSelect(){
-  const months = Array.from(new Set(history.map(h=>h.month))).sort().reverse();
-  const sel = el("monthSelect");
-  sel.innerHTML = months.map(m=>`<option value="${m}">${monthTitle(m)}</option>`).join("");
-  if(!months.length){
-    sel.innerHTML = `<option value="">Нет данных</option>`;
-  }
-}
-
-// ВАЖНО: эта функция должна быть ТОЛЬКО ОДНА (без дублей ниже)
-function renderHistory(){
-  renderMonthSelect();
-
-  const list = el("historyList");
-  if(!history.length){
-    list.innerHTML = `<div class="card"><div class="muted">Пока нет записей.</div></div>`;
-    return;
-  }
-
-  list.innerHTML = history.slice(0,10).map(t=>{
-    const body = (t.items || []).map(it=>{
-      const line = (it.sets || []).map(s=>`${s.setNo}: ${s.weight}кг×${s.reps}`).join(" • ");
-      return `<div style="margin-top:10px">
-        <div style="font-weight:900;font-size:13px">${it.ex}</div>
-        <div class="muted" style="margin-top:2px">${line || "—"}</div>
-      </div>`;
-    }).join("");
-
-    return `
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
-          <div>
-            <div style="font-weight:900">${t.workout}</div>
-            <div class="muted">${fmt(t.date)}</div>
-          </div>
-          <button class="btn secondary delSessionBtn"
-                  data-id="${t.id}"
-                  style="width:auto;padding:10px 12px">
-            Удалить
-          </button>
-        </div>
-        <div class="kpi">${body || `<div class="muted">Нет упражнений.</div>`}</div>
-      </div>
-    `;
-  }).join("");
-
-  // обработчики клика — только после вставки HTML
-  list.querySelectorAll(".delSessionBtn").forEach(btn=>{
-    btn.addEventListener("click", (e)=>{
-      deleteSessionById(e.currentTarget.dataset.id);
-    });
+    try{
+      await addDoc(collection(db, "users", user.uid, "sessions"), payload);
+      await loadHistory();
+      renderDashboard();
+      renderHistory();
+      renderProgress();
+      setActiveTabUI("dashboard");
+    }catch(e){
+      console.error(e);
+      alert("Не удалось сохранить. Проверь Rules/доступ.");
+    }
   });
-}
 
-function buildCsvForMonth(ym){
-  const rows = [["date","month","workout","exercise","setNo","weight","reps"]];
-  history
-    .filter(h=>h.month===ym)
-    .forEach(h=>{
-      (h.items||[]).forEach(it=>{
-        (it.sets||[]).forEach(s=>{
-          rows.push([
-            h.date, h.month, h.workout, it.ex,
-            s.setNo, s.weight, s.reps
-          ]);
-        });
-      });
-    });
+  // ---------------------------
+  // Dashboard: 3 workouts per week
+  // ---------------------------
+  function weekRangeISO(){
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const day = (d.getDay() + 6) % 7; // Monday=0..6
+    const monday = new Date(d); monday.setDate(d.getDate() - day);
+    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
 
-  return rows.map(r=>r.map(csvEscape).join(",")).join("\n");
-}
+    const toISO = (x)=>{
+      const tz = x.getTimezoneOffset()*60000;
+      return new Date(x.getTime()-tz).toISOString().slice(0,10);
+    };
+    return { start: toISO(monday), end: toISO(sunday) };
+  }
 
-el("exportMonth").addEventListener("click", ()=>{
-  const ym = el("monthSelect").value;
-  if(!ym) return alert("Нет данных.");
-  const csv = buildCsvForMonth(ym);
-  downloadText(`workouts_${ym}.csv`, csv);
-});
+  function renderDashboard(){
+    el("today").textContent = "Сегодня: " + fmt(todayISO());
 
-el("exportAllMonths").addEventListener("click", ()=>{
-  const months = Array.from(new Set(history.map(h=>h.month))).sort();
-  if(!months.length) return alert("Нет данных.");
-  months.forEach(ym=>{
-    const csv = buildCsvForMonth(ym);
-    downloadText(`workouts_${ym}.csv`, csv);
-  });
-});
+    const GOAL_PER_WEEK = 3;
+    const { start, end } = weekRangeISO();
+    const count = history.filter(h => h.date >= start && h.date <= end).length;
 
-// ---------------------------
-// Progress: last vs prev (per exercise)
-// ---------------------------
-function buildProgressLastVsPrev(){
-  const logs = [];
-  for(const h of history){
-    for(const it of (h.items||[])){
-      const best = Math.max(...(it.sets||[]).map(s => Number(s.weight||0)), 0);
-      logs.push({ ex: it.ex, date: h.date, best });
+    el("monthStat").textContent = `${count} / ${GOAL_PER_WEEK} тренировок`;
+    const pct = Math.min(100, Math.round((count / GOAL_PER_WEEK) * 100));
+    el("monthBar").style.width = pct + "%";
+
+    const last = history[0];
+    if(!last){
+      el("lastWorkout").textContent = "Пока нет записей.";
+    } else {
+      el("lastWorkout").innerHTML = `
+        <div style="font-weight:900">${last.workout}</div>
+        <div class="muted">${fmt(last.date)} • Упражнений: ${(last.items||[]).length}</div>
+      `;
     }
   }
 
-  const byEx = new Map();
-  for(const r of logs){
-    if(!byEx.has(r.ex)) byEx.set(r.ex, []);
-    byEx.get(r.ex).push(r);
+  // ---------------------------
+  // History + export
+  // ---------------------------
+  function renderMonthSelect(){
+    const months = Array.from(new Set(history.map(h=>h.month))).sort().reverse();
+    const sel = el("monthSelect");
+    sel.innerHTML = months.map(m=>`<option value="${m}">${monthTitle(m)}</option>`).join("");
+    if(!months.length){
+      sel.innerHTML = `<option value="">Нет данных</option>`;
+    }
   }
 
-  const rows = [];
-  for(const [ex, arr] of byEx.entries()){
-    arr.sort((a,b)=> b.date.localeCompare(a.date));
-    const last = arr[0];
-    const prev = arr[1];
+  function renderHistory(){
+    renderMonthSelect();
 
-    const lastW = last?.best ?? 0;
-    const prevW = prev?.best ?? 0;
-    const delta = lastW - prevW;
+    const list = el("historyList");
+    if(!history.length){
+      list.innerHTML = `<div class="card"><div class="muted">Пока нет записей.</div></div>`;
+      return;
+    }
 
-    rows.push({ ex, lastW, prevW, delta });
+    list.innerHTML = history.slice(0,10).map(t=>{
+      const body = (t.items || []).map(it=>{
+        const line = (it.sets || []).map(s=>`${s.setNo}: ${s.weight}кг×${s.reps}`).join(" • ");
+        return `<div style="margin-top:10px">
+          <div style="font-weight:900;font-size:13px">${it.ex}</div>
+          <div class="muted" style="margin-top:2px">${line || "—"}</div>
+        </div>`;
+      }).join("");
+
+      return `
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+            <div>
+              <div style="font-weight:900">${t.workout}</div>
+              <div class="muted">${fmt(t.date)}</div>
+            </div>
+            <button class="btn secondary delSessionBtn"
+                    data-id="${t.id}"
+                    style="width:auto;padding:10px 12px">
+              Удалить
+            </button>
+          </div>
+          <div class="kpi">${body || `<div class="muted">Нет упражнений.</div>`}</div>
+        </div>
+      `;
+    }).join("");
+
+    list.querySelectorAll(".delSessionBtn").forEach(btn=>{
+      btn.addEventListener("click", (e)=>{
+        deleteSessionById(e.currentTarget.dataset.id);
+      });
+    });
   }
 
-  rows.sort((a,b)=> (b.delta - a.delta) || (b.lastW - a.lastW));
-  return rows;
-}
+  function buildCsvForMonth(ym){
+    const rows = [["date","month","workout","exercise","setNo","weight","reps"]];
+    history
+      .filter(h=>h.month===ym)
+      .forEach(h=>{
+        (h.items||[]).forEach(it=>{
+          (it.sets||[]).forEach(s=>{
+            rows.push([ h.date, h.month, h.workout, it.ex, s.setNo, s.weight, s.reps ]);
+          });
+        });
+      });
 
-function renderProgress(){
-  const rows = buildProgressLastVsPrev();
-  const wrap = el("progressTableWrap");
-
-  if(!rows.length){
-    wrap.innerHTML = `<div class="muted">Недостаточно данных.</div>`;
-    return;
+    return rows.map(r=>r.map(csvEscape).join(",")).join("\n");
   }
 
-  wrap.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th>Упражнение</th>
-          <th>Последний</th>
-          <th>Предыдущий</th>
-          <th>Δ</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows.map(r=>{
-          const cls = r.delta >= 0 ? "deltaPlus" : "deltaMinus";
-          const sign = r.delta >= 0 ? "+" : "";
-          const prevTxt = r.prevW ? `${r.prevW} кг` : "—";
-          return `
-            <tr>
-              <td>${r.ex}</td>
-              <td><b>${r.lastW} кг</b></td>
-              <td>${prevTxt}</td>
-              <td class="${cls}">${r.prevW ? (sign + r.delta + " кг") : "—"}</td>
-            </tr>
-          `;
-        }).join("")}
-      </tbody>
-    </table>
-  `;
-}
+  el("exportMonth").addEventListener("click", ()=>{
+    const ym = el("monthSelect").value;
+    if(!ym) return alert("Нет данных.");
+    const csv = buildCsvForMonth(ym);
+    downloadText(`workouts_${ym}.csv`, csv);
+  });
+
+  el("exportAllMonths").addEventListener("click", ()=>{
+    const months = Array.from(new Set(history.map(h=>h.month))).sort();
+    if(!months.length) return alert("Нет данных.");
+    months.forEach(ym=>{
+      const csv = buildCsvForMonth(ym);
+      downloadText(`workouts_${ym}.csv`, csv);
+    });
+  });
 
   // ---------------------------
-  // Admin: Load / Copy default / Save
+  // Progress: last vs prev
+  // ---------------------------
+  function buildProgressLastVsPrev(){
+    const logs = [];
+    for(const h of history){
+      for(const it of (h.items||[])){
+        const best = Math.max(...(it.sets||[]).map(s => Number(s.weight||0)), 0);
+        logs.push({ ex: it.ex, date: h.date, best });
+      }
+    }
+
+    const byEx = new Map();
+    for(const r of logs){
+      if(!byEx.has(r.ex)) byEx.set(r.ex, []);
+      byEx.get(r.ex).push(r);
+    }
+
+    const rows = [];
+    for(const [ex, arr] of byEx.entries()){
+      arr.sort((a,b)=> b.date.localeCompare(a.date));
+      const last = arr[0];
+      const prev = arr[1];
+
+      const lastW = last?.best ?? 0;
+      const prevW = prev?.best ?? 0;
+      const delta = lastW - prevW;
+
+      rows.push({ ex, lastW, prevW, delta });
+    }
+
+    rows.sort((a,b)=> (b.delta - a.delta) || (b.lastW - a.lastW));
+    return rows;
+  }
+
+  function renderProgress(){
+    const rows = buildProgressLastVsPrev();
+    const wrap = el("progressTableWrap");
+
+    if(!rows.length){
+      wrap.innerHTML = `<div class="muted">Недостаточно данных.</div>`;
+      return;
+    }
+
+    wrap.innerHTML = `
+      <div class="tableScroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Упражнение</th>
+              <th>Последний</th>
+              <th>Предыдущий</th>
+              <th>Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r=>{
+              const cls = r.delta >= 0 ? "deltaPlus" : "deltaMinus";
+              const sign = r.delta >= 0 ? "+" : "";
+              const prevTxt = r.prevW ? `${r.prevW} кг` : "—";
+              return `
+                <tr>
+                  <td>${r.ex}</td>
+                  <td><b>${r.lastW} кг</b></td>
+                  <td>${prevTxt}</td>
+                  <td class="${cls}">${r.prevW ? (sign + r.delta + " кг") : "—"}</td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  // ---------------------------
+  // Admin
   // ---------------------------
   el("adminLoadBtn").addEventListener("click", async ()=>{
     if(!isAdminLocal()) return adminMsg("Нет доступа", true);
-    const targetUid = el("adminUserSelect").value;
 
+    const targetUid = el("adminUserSelect").value;
     const program = await loadProgramDoc(targetUid);
+
     if(!program){
       el("adminProgramJson").value = "";
       return adminMsg("У пользователя нет сохранённой программы. Нажми «Скопировать дефолт» и «Сохранить».");
@@ -1244,7 +1150,6 @@ function renderProgress(){
       await saveProgramDoc(targetUid, programObj);
       adminMsg("Сохранено в Firestore.");
 
-      // если обновляешь программу себе — применим сразу
       if(user && targetUid === user.uid){
         PROGRAM = programObj;
       }
@@ -1252,6 +1157,91 @@ function renderProgress(){
       console.error(e);
       adminMsg("Не удалось сохранить (проверь Rules).", true);
     }
+  });
+
+  // ---------------------------
+  // Auth: autologin
+  // ---------------------------
+  await setPersistence(auth, browserLocalPersistence);
+
+  onAuthStateChanged(auth, async (u) => {
+    if (!u) {
+      user = null;
+      profile = null;
+      history = [];
+      PROGRAM = DEFAULT_PROGRAM;
+
+      show("screenLogin", true);
+      show("screenApp", false);
+      show("logoutBtn", false);
+      show("adminTabBtn", false);
+      setSub("Вход");
+      return;
+    }
+
+    user = u;
+
+    const loaded = await loadProgramDoc(user.uid);
+    PROGRAM = loaded ?? DEFAULT_PROGRAM;
+
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
+    profile = snap.exists() ? snap.data() : { nick: "—" };
+
+    await loadHistory();
+
+    el("profileName").textContent = profile.nick || "—";
+    setSub(profile.nick || "—");
+
+    show("screenLogin", false);
+    show("screenApp", true);
+    show("logoutBtn", true);
+
+    show("adminTabBtn", user.uid === ADMIN_UID);
+
+    setActiveTabUI("dashboard");
+    renderDashboard();
+    renderHistory();
+    renderProgress();
+  });
+
+  // ---------------------------
+  // Login / Logout кнопки
+  // ---------------------------
+  el("loginBtn").addEventListener("click", async ()=>{
+    const nick = el("nick").value.trim().toLowerCase();
+    const pass = el("pass").value.trim();
+
+    if(!nick || !pass){
+      el("loginHint").style.display = "";
+      el("loginHint").innerHTML = `<b>Ошибка:</b> Заполни никнейм и пароль.`;
+      return;
+    }
+
+    const email = NICK_TO_EMAIL[nick];
+    if(!email){
+      el("loginHint").style.display = "";
+      el("loginHint").innerHTML = `<b>Ошибка:</b> Нет доступа.`;
+      return;
+    }
+
+    try{
+      await signInWithEmailAndPassword(auth, email, pass);
+      // дальше всё подхватит onAuthStateChanged
+    }catch(e){
+      el("loginHint").style.display = "";
+      el("loginHint").innerHTML = `<b>Ошибка:</b> Неверный никнейм или пароль.`;
+      console.error(e);
+    }
+  });
+
+  el("logoutBtn").addEventListener("click", async ()=>{
+    await signOut(auth);
+
+    el("nick").value = "";
+    el("pass").value = "";
+    el("loginHint").style.display = "none";
+    el("loginHint").innerHTML = "";
   });
 
   // ---------------------------
