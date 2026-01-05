@@ -279,6 +279,39 @@
     width:16%;
     text-align:right;
   }
+
+
+  .workoutHead{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.workoutMeta{ min-width:0; }
+
+.workoutMeta h3{
+  margin:0;
+  font-size:16px;
+}
+
+.workoutDel{
+  width:34px;
+  height:34px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  flex:0 0 auto;
+}
+
+.workoutDel:hover{
+  color:var(--danger);
+  border-color:rgba(255,107,107,.45);
+}
+
+
 </style>
 </head>
 
@@ -655,26 +688,27 @@
     return data?.program || null;
   }
 
-  async function saveProgramDoc(uid, programObj){
-    const ref = doc(db, "users", uid, "config", "program");
-    await setDoc(ref, {
-      program: programObj,
-      updatedAt: Date.now(),
-      updatedBy: user.uid
-    }, { merge: true });
-  }
+async function saveProgramDoc(uid, programObj){
+  const ref = doc(db, "users", uid, "config", "program");
+  await setDoc(ref, {
+    program: programObj,
+    updatedAt: Date.now(),
+    updatedBy: user.uid
+  }); // <-- ВАЖНО: без { merge: true }
+}
 
 function validateProgramShape(p){
-  if(!p || typeof p !== "object") return "Program должен быть объектом";
+  if(!p || typeof p !== "object" || Array.isArray(p)) return "Program должен быть объектом";
+
   const keys = Object.keys(p);
   if(!keys.length) return "Program пустой";
 
-  for(const key of keys){
-    if(!Array.isArray(p[key])) return `В Program "${key}" должен быть массивом упражнений`;
+  for(const wName of keys){
+    if(!Array.isArray(p[wName])) return `Тренировка "${wName}" должна быть массивом упражнений`;
 
-    for(const ex of p[key]){
-      if(typeof ex !== "object" || ex === null) return `В "${key}" есть не-объект`;
-      if(!ex.name || !ex.scheme) return `В "${key}" у упражнения нет name/scheme`;
+    for(const ex of p[wName]){
+      if(!ex || typeof ex !== "object") return `В "${wName}" есть не-объект`;
+      if(!ex.name || !ex.scheme) return `В "${wName}" у упражнения нет name/scheme`;
       if(!ex.video) ex.video = "https://drive.google.com/";
     }
   }
@@ -707,13 +741,18 @@ function validateProgramShape(p){
         setActiveTabUI("admin");
         return;
       }
-      if(tab==="select"){ setActiveTabUI("select"); return; }
-      if(tab==="dashboard"){ setActiveTabUI("dashboard"); renderDashboard(); return; }
+if(tab==="select"){
+  setActiveTabUI("select");
+  renderWorkoutSelect();
+  return;
+}      if(tab==="dashboard"){ setActiveTabUI("dashboard"); renderDashboard(); return; }
     });
   });
 
-  el("goStart").addEventListener("click", ()=> setActiveTabUI("select"));
-  el("goHistory").addEventListener("click", ()=> { setActiveTabUI("history"); renderHistory(); });
+el("goStart").addEventListener("click", ()=>{
+  setActiveTabUI("select");
+  renderWorkoutSelect();
+});  el("goHistory").addEventListener("click", ()=> { setActiveTabUI("history"); renderHistory(); });
   el("goProgress").addEventListener("click", ()=> { setActiveTabUI("progress"); renderProgress(); });
 
   // ---------------------------
@@ -745,41 +784,100 @@ function validateProgramShape(p){
   }
 
   // ---------------------------
-  // Workout selection
-  // ---------------------------
+// ---------------------------
+// Workout selection
+// ---------------------------
 function workoutSubtitle(name){
-  // опционально: короткое описание под названием
-  const n = name.toLowerCase();
-  if(n.includes("спина")) return "Спина / бицепсы / плечи";
-  if(n.includes("груд")) return "Грудь / трицепсы / плечи";
-  if(n.includes("ягод")) return "Акцент на ягодицы";
-  if(n.includes("ног")) return "Ноги";
-  if(n.includes("вверх")) return "Спина / грудь / плечи / руки";
-  return "Тренировка";
+  const map = {
+    "Спина / Бицепсы": "Спина / бицепсы / плечи",
+    "Грудь / Трицепсы": "Грудь / трицепсы / плечи",
+    "Ноги": "Ноги",
+    "Вверх": "Спина / грудь / плечи / руки",
+    "Ягодицы": "Акцент на ягодицы"
+  };
+  return map[name] || "Тренировка";
 }
 
 function renderWorkoutSelect(){
   const wrap = el("workoutList");
   if(!wrap) return;
 
-  const keys = Object.keys(PROGRAM || {});
-  if(!keys.length){
-    wrap.innerHTML = `<div class="card"><div class="muted">Нет тренировок в программе.</div></div>`;
+  const names = Object.keys(PROGRAM || {}).filter(Boolean);
+
+  if(!names.length){
+    wrap.innerHTML = `
+      <div class="card">
+        <div class="muted">Нет тренировок в программе. Добавь через Админ → Program JSON.</div>
+      </div>
+    `;
     return;
   }
 
-  wrap.innerHTML = keys.map(k => `
-    <div class="workoutCard" data-workout="${k}">
-      <h3>${k}</h3>
-      <div class="muted">${workoutSubtitle(k)}</div>
-    </div>
-  `).join("");
+wrap.innerHTML = names.map(name => `
+  <div class="workoutCard" data-workout="${name}">
+    <div class="workoutHead">
+      <div class="workoutMeta">
+        <h3>${name}</h3>
+        <div class="muted">${workoutSubtitle(name)}</div>
+      </div>
 
+      <button class="workoutDel" type="button" title="Удалить тренировку" data-del="${name}">✕</button>
+    </div>
+  </div>
+`).join("");
+
+  // клик по карточке — старт тренировки
   wrap.querySelectorAll(".workoutCard").forEach(card=>{
-    card.addEventListener("click", ()=>{
+    card.addEventListener("click", (e)=>{
+      // если нажали на крестик — не стартуем
+      if(e.target && e.target.closest(".workoutDel")) return;
       startWorkout(card.dataset.workout);
     });
   });
+
+  // клик по кресту — удалить тренировку
+  wrap.querySelectorAll(".workoutDel").forEach(btn=>{
+    btn.addEventListener("click", async (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+
+      const name = btn.dataset.del;
+      await deleteWorkoutFromProgram(name);
+    });
+  });
+}
+
+async function deleteWorkoutFromProgram(workoutName){
+  if(!user) return;
+
+  const ok = confirm(`Удалить тренировку "${workoutName}" из программы?`);
+  if(!ok) return;
+
+  try{
+    const next = { ...(PROGRAM || {}) };
+    delete next[workoutName];
+
+    PROGRAM = next;
+
+    // сохраняем ТОЛЬКО в программу текущего пользователя
+    await saveProgramDoc(user.uid, PROGRAM);
+
+    // обновляем список
+    renderWorkoutSelect();
+
+    // если удалили тренировку, которая сейчас открыта — уходим на выбор
+    if(currentWorkout === workoutName){
+      currentWorkout = null;
+      currentExercise = null;
+      session = { date: todayISO(), workout:null, items:{} };
+      setActiveTabUI("select");
+      renderWorkoutSelect();
+    }
+
+  }catch(err){
+    console.error(err);
+    alert("Не удалось удалить тренировку. Проверь Rules/доступ.");
+  }
 }
 
   function startWorkout(w){
@@ -1203,9 +1301,16 @@ function renderWorkoutSelect(){
 
     user = u;
 
-    const loaded = await loadProgramDoc(user.uid);
-    PROGRAM = loaded ?? DEFAULT_PROGRAM;
-    renderWorkoutSelect();
+let loaded = await loadProgramDoc(user.uid);
+
+if(!loaded){
+  // если у пользователя ещё нет своей программы в Firestore — создаём её
+  await saveProgramDoc(user.uid, DEFAULT_PROGRAM);
+  loaded = DEFAULT_PROGRAM;
+}
+
+PROGRAM = loaded;
+renderWorkoutSelect();
 
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
@@ -1226,6 +1331,7 @@ function renderWorkoutSelect(){
     renderDashboard();
     renderHistory();
     renderProgress();
+    renderWorkoutSelect();
   });
 
   // ---------------------------
