@@ -308,7 +308,7 @@
     <!-- LOGIN -->
     <div id="screenLogin" class="card">
       <h2>Вход</h2>
-      <div class="muted">Вход по никнейму и паролю. Доступ только 2 пользователям.</div>
+   <!--   <div class="muted">Вход по никнейму и паролю. Доступ только 2 пользователям.</div> -->
 
       <label>Никнейм</label>
       <input id="nick" placeholder="nickname" />
@@ -377,20 +377,7 @@
           <div class="muted">Тапни по карточке, чтобы открыть упражнения.</div>
         </div>
 
-        <div class="grid3">
-          <div class="workoutCard" data-workout="Вверх">
-            <h3>Вверх</h3>
-            <div class="muted">Спина / грудь / плечи / руки</div>
-          </div>
-          <div class="workoutCard" data-workout="Ягодицы">
-            <h3>Ягодицы</h3>
-            <div class="muted">Акцент на ягодичные</div>
-          </div>
-          <div class="workoutCard" data-workout="Ноги">
-            <h3>Ноги</h3>
-            <div class="muted">Квадрицепс + задняя</div>
-          </div>
-        </div>
+<div class="grid3" id="workoutList"></div>
       </div>
 
       <!-- WORKOUT -->
@@ -677,18 +664,22 @@
     }, { merge: true });
   }
 
-  function validateProgramShape(p){
-    if(!p || typeof p !== "object") return "Program должен быть объектом";
-    for(const key of ["Вверх","Ягодицы","Ноги"]){
-      if(!Array.isArray(p[key])) return `В Program нет массива "${key}"`;
-      for(const ex of p[key]){
-        if(typeof ex !== "object") return `В "${key}" есть не-объект`;
-        if(!ex.name || !ex.scheme) return `В "${key}" у упражнения нет name/scheme`;
-        if(!ex.video) ex.video = "https://drive.google.com/";
-      }
+function validateProgramShape(p){
+  if(!p || typeof p !== "object") return "Program должен быть объектом";
+  const keys = Object.keys(p);
+  if(!keys.length) return "Program пустой";
+
+  for(const key of keys){
+    if(!Array.isArray(p[key])) return `В Program "${key}" должен быть массивом упражнений`;
+
+    for(const ex of p[key]){
+      if(typeof ex !== "object" || ex === null) return `В "${key}" есть не-объект`;
+      if(!ex.name || !ex.scheme) return `В "${key}" у упражнения нет name/scheme`;
+      if(!ex.video) ex.video = "https://drive.google.com/";
     }
-    return null;
   }
+  return null;
+}
 
   // ---------------------------
   // Tabs
@@ -756,11 +747,40 @@
   // ---------------------------
   // Workout selection
   // ---------------------------
-  document.querySelectorAll(".workoutCard").forEach(c=>{
-    c.addEventListener("click", ()=>{
-      startWorkout(c.dataset.workout);
+function workoutSubtitle(name){
+  // опционально: короткое описание под названием
+  const n = name.toLowerCase();
+  if(n.includes("спина")) return "Спина / бицепсы / плечи";
+  if(n.includes("груд")) return "Грудь / трицепсы / плечи";
+  if(n.includes("ягод")) return "Акцент на ягодицы";
+  if(n.includes("ног")) return "Ноги";
+  if(n.includes("вверх")) return "Спина / грудь / плечи / руки";
+  return "Тренировка";
+}
+
+function renderWorkoutSelect(){
+  const wrap = el("workoutList");
+  if(!wrap) return;
+
+  const keys = Object.keys(PROGRAM || {});
+  if(!keys.length){
+    wrap.innerHTML = `<div class="card"><div class="muted">Нет тренировок в программе.</div></div>`;
+    return;
+  }
+
+  wrap.innerHTML = keys.map(k => `
+    <div class="workoutCard" data-workout="${k}">
+      <h3>${k}</h3>
+      <div class="muted">${workoutSubtitle(k)}</div>
+    </div>
+  `).join("");
+
+  wrap.querySelectorAll(".workoutCard").forEach(card=>{
+    card.addEventListener("click", ()=>{
+      startWorkout(card.dataset.workout);
     });
   });
+}
 
   function startWorkout(w){
     currentWorkout = w;
@@ -1153,6 +1173,8 @@
       if(user && targetUid === user.uid){
         PROGRAM = programObj;
       }
+      renderWorkoutSelect();
+
     }catch(e){
       console.error(e);
       adminMsg("Не удалось сохранить (проверь Rules).", true);
@@ -1183,6 +1205,7 @@
 
     const loaded = await loadProgramDoc(user.uid);
     PROGRAM = loaded ?? DEFAULT_PROGRAM;
+    renderWorkoutSelect();
 
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
