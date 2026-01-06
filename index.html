@@ -626,11 +626,12 @@
   // Helpers
   // ---------------------------
   function el(id){ return document.getElementById(id); }
-  function show(id, yes=true){ el(id).style.display = yes ? "" : "none"; }
-  function setSub(txt){ el("sub").textContent = txt; }
+  function show(id, yes=true){ const n = el(id); if(n) n.style.display = yes ? "" : "none"; }
+  function setSub(txt){ const n = el("sub"); if(n) n.textContent = txt; }
 
   function adminMsg(text, isError=false){
     const box = el("adminStatus");
+    if(!box) return;
     box.style.display = "";
     box.innerHTML = isError ? `<b>Ошибка:</b> ${text}` : text;
   }
@@ -666,12 +667,116 @@
   }
 
   // ---------------------------
+  // Draft workout (persist unfinished session)
+  // ---------------------------
+  function draftKey(){
+    return user ? `wt_draft_${user.uid}` : "wt_draft_anon";
+  }
+
+  function saveDraft(){
+    if(!user) return;
+    if(!session || !session.workout) return;
+
+    const payload = {
+      v: 1,
+      savedAt: Date.now(),
+      session,
+      currentWorkout,
+      currentExercise
+    };
+
+    try{
+      localStorage.setItem(draftKey(), JSON.stringify(payload));
+    }catch(e){
+      console.warn("Draft save failed", e);
+    }
+
+    updateGoStartButton();
+  }
+
+  function loadDraft(){
+    if(!user) return null;
+    try{
+      const raw = localStorage.getItem(draftKey());
+      if(!raw) return null;
+      const parsed = JSON.parse(raw);
+      if(!parsed?.session?.workout) return null;
+      return parsed;
+    }catch(e){
+      console.warn("Draft load failed", e);
+      return null;
+    }
+  }
+
+  function clearDraft(){
+    if(!user) return;
+    try{ localStorage.removeItem(draftKey()); }catch(e){}
+    updateGoStartButton();
+  }
+
+  function hasDraft(){
+    const d = loadDraft();
+    return !!(d && d.session && d.session.workout);
+  }
+
+  function updateGoStartButton(){
+    const btn = el("goStart");
+    if(!btn) return;
+    btn.textContent = hasDraft() ? "Продолжить тренировку" : "Начать тренировку";
+  }
+
+  function resumeFromDraft(draft){
+    if(!draft?.session?.workout) return;
+
+    session = draft.session;
+    currentWorkout = draft.currentWorkout || session.workout;
+    currentExercise = draft.currentExercise || null;
+
+    // Заголовки
+    el("wName").textContent = session.workout;
+    el("wDate").textContent = fmt(session.date);
+
+    // Pills
+    const pills = el("exPills");
+    pills.innerHTML = "";
+
+    const list = PROGRAM[session.workout] || [];
+    list.forEach((ex)=>{
+      const b = document.createElement("button");
+      b.className = "pill";
+      b.textContent = ex.name;
+      b.addEventListener("click", ()=> selectExercise(ex.name));
+      pills.appendChild(b);
+    });
+
+    // Если упражнение не найдено — берём первое
+    if(!currentExercise || !list.some(x => x.name === currentExercise)){
+      currentExercise = list[0]?.name || null;
+    }
+
+    // Подсветка активного pill
+    document.querySelectorAll("#exPills .pill").forEach(p=>{
+      p.classList.toggle("active", p.textContent === currentExercise);
+    });
+
+    renderExercise(true);
+    setActiveTabUI("workout");
+
+    updateGoStartButton();
+  }
+
+  // Автосохранение на закрытие/перезагрузку
+  window.addEventListener("beforeunload", ()=>{
+    if(user && session?.workout) saveDraft();
+  });
+
+  // ---------------------------
   // Theme
   // ---------------------------
   const savedTheme = localStorage.getItem("wt_theme");
   if(savedTheme === "pink") document.documentElement.setAttribute("data-theme","pink");
 
-  el("themeToggle").addEventListener("click", ()=>{
+  el("themeToggle")?.addEventListener("click", ()=>{
     const isPink = document.documentElement.getAttribute("data-theme")==="pink";
     if(isPink){
       document.documentElement.removeAttribute("data-theme");
@@ -693,33 +798,33 @@
     return data?.program || null;
   }
 
-async function saveProgramDoc(uid, programObj){
-  const ref = doc(db, "users", uid, "config", "program");
-  await setDoc(ref, {
-    program: programObj,
-    updatedAt: Date.now(),
-    updatedBy: user.uid
-  }); // <-- ВАЖНО: без { merge: true }
-}
-
-function validateProgramShape(p){
-  if(!p || typeof p !== "object" || Array.isArray(p)) return "Program должен быть объектом";
-
-  const keys = Object.keys(p);
-  if(!keys.length) return "Program пустой";
-
-  for(const wName of keys){
-    if(!Array.isArray(p[wName])) return `Тренировка "${wName}" должна быть массивом упражнений`;
-
-    for(const ex of p[wName]){
-      if(!ex || typeof ex !== "object") return `В "${wName}" есть не-объект`;
-      if(!ex.name || !ex.scheme) return `В "${wName}" у упражнения нет name/scheme`;
-      if(!ex.video) ex.video = "https://drive.google.com/";
-      if(!ex.machine) ex.machine = ""; // <-- добавили
-    }
+  async function saveProgramDoc(uid, programObj){
+    const ref = doc(db, "users", uid, "config", "program");
+    await setDoc(ref, {
+      program: programObj,
+      updatedAt: Date.now(),
+      updatedBy: user.uid
+    }); // <-- ВАЖНО: без { merge: true }
   }
-  return null;
-}
+
+  function validateProgramShape(p){
+    if(!p || typeof p !== "object" || Array.isArray(p)) return "Program должен быть объектом";
+
+    const keys = Object.keys(p);
+    if(!keys.length) return "Program пустой";
+
+    for(const wName of keys){
+      if(!Array.isArray(p[wName])) return `Тренировка "${wName}" должна быть массивом упражнений`;
+
+      for(const ex of p[wName]){
+        if(!ex || typeof ex !== "object") return `В "${wName}" есть не-объект`;
+        if(!ex.name || !ex.scheme) return `В "${wName}" у упражнения нет name/scheme`;
+        if(!ex.video) ex.video = "https://drive.google.com/";
+        if(!ex.machine) ex.machine = "";
+      }
+    }
+    return null;
+  }
 
   // ---------------------------
   // Tabs
@@ -732,7 +837,8 @@ function validateProgramShape(p){
     });
 
     ["dashboard","select","workout","history","progress","admin"].forEach(k=>{
-      el("tab-"+k).style.display = (k===tab) ? "" : "none";
+      const pane = el("tab-"+k);
+      if(pane) pane.style.display = (k===tab) ? "" : "none";
     });
   }
 
@@ -747,19 +853,32 @@ function validateProgramShape(p){
         setActiveTabUI("admin");
         return;
       }
-if(tab==="select"){
-  setActiveTabUI("select");
-  renderWorkoutSelect();
-  return;
-}      if(tab==="dashboard"){ setActiveTabUI("dashboard"); renderDashboard(); return; }
+      if(tab==="select"){
+        setActiveTabUI("select");
+        renderWorkoutSelect();
+        return;
+      }
+      if(tab==="dashboard"){
+        setActiveTabUI("dashboard");
+        renderDashboard();
+        return;
+      }
     });
   });
 
-el("goStart").addEventListener("click", ()=>{
-  setActiveTabUI("select");
-  renderWorkoutSelect();
-});  el("goHistory").addEventListener("click", ()=> { setActiveTabUI("history"); renderHistory(); });
-  el("goProgress").addEventListener("click", ()=> { setActiveTabUI("progress"); renderProgress(); });
+  // Главная кнопка: "Начать" / "Продолжить"
+  el("goStart")?.addEventListener("click", ()=>{
+    const d = loadDraft();
+    if(d){
+      resumeFromDraft(d);
+      return;
+    }
+    setActiveTabUI("select");
+    renderWorkoutSelect();
+  });
+
+  el("goHistory")?.addEventListener("click", ()=> { setActiveTabUI("history"); renderHistory(); });
+  el("goProgress")?.addEventListener("click", ()=> { setActiveTabUI("progress"); renderProgress(); });
 
   // ---------------------------
   // Load sessions
@@ -790,101 +909,97 @@ el("goStart").addEventListener("click", ()=>{
   }
 
   // ---------------------------
-// ---------------------------
-// Workout selection
-// ---------------------------
-function workoutSubtitle(name){
-  const map = {
-    "Спина / Бицепсы": "Спина / бицепсы / плечи",
-    "Грудь / Трицепсы": "Грудь / трицепсы / плечи",
-    "Ноги": "Ноги",
-    "Вверх": "Спина / грудь / плечи / руки",
-    "Ягодицы": "Акцент на ягодицы"
-  };
-  return map[name] || "Тренировка";
-}
-
-function renderWorkoutSelect(){
-  const wrap = el("workoutList");
-  if(!wrap) return;
-
-  const names = Object.keys(PROGRAM || {}).filter(Boolean);
-
-  if(!names.length){
-    wrap.innerHTML = `
-      <div class="card">
-        <div class="muted">Нет тренировок в программе. Добавь через Админ → Program JSON.</div>
-      </div>
-    `;
-    return;
+  // Workout selection
+  // ---------------------------
+  function workoutSubtitle(name){
+    const map = {
+      "Спина / Бицепсы": "Спина / бицепсы / плечи",
+      "Грудь / Трицепсы": "Грудь / трицепсы / плечи",
+      "Ноги": "Ноги",
+      "Вверх": "Спина / грудь / плечи / руки",
+      "Ягодицы": "Акцент на ягодицы"
+    };
+    return map[name] || "Тренировка";
   }
 
-wrap.innerHTML = names.map(name => `
-  <div class="workoutCard" data-workout="${name}">
-    <div class="workoutHead">
-      <div class="workoutMeta">
-        <h3>${name}</h3>
-        <div class="muted">${workoutSubtitle(name)}</div>
-      </div>
+  function renderWorkoutSelect(){
+    const wrap = el("workoutList");
+    if(!wrap) return;
 
-      <button class="workoutDel" type="button" title="Удалить тренировку" data-del="${name}">✕</button>
-    </div>
-  </div>
-`).join("");
+    const names = Object.keys(PROGRAM || {}).filter(Boolean);
 
-  // клик по карточке — старт тренировки
-  wrap.querySelectorAll(".workoutCard").forEach(card=>{
-    card.addEventListener("click", (e)=>{
-      // если нажали на крестик — не стартуем
-      if(e.target && e.target.closest(".workoutDel")) return;
-      startWorkout(card.dataset.workout);
-    });
-  });
-
-  // клик по кресту — удалить тренировку
-  wrap.querySelectorAll(".workoutDel").forEach(btn=>{
-    btn.addEventListener("click", async (e)=>{
-      e.preventDefault();
-      e.stopPropagation();
-
-      const name = btn.dataset.del;
-      await deleteWorkoutFromProgram(name);
-    });
-  });
-}
-
-async function deleteWorkoutFromProgram(workoutName){
-  if(!user) return;
-
-  const ok = confirm(`Удалить тренировку "${workoutName}" из программы?`);
-  if(!ok) return;
-
-  try{
-    const next = { ...(PROGRAM || {}) };
-    delete next[workoutName];
-
-    PROGRAM = next;
-
-    // сохраняем ТОЛЬКО в программу текущего пользователя
-    await saveProgramDoc(user.uid, PROGRAM);
-
-    // обновляем список
-    renderWorkoutSelect();
-
-    // если удалили тренировку, которая сейчас открыта — уходим на выбор
-    if(currentWorkout === workoutName){
-      currentWorkout = null;
-      currentExercise = null;
-      session = { date: todayISO(), workout:null, items:{} };
-      setActiveTabUI("select");
-      renderWorkoutSelect();
+    if(!names.length){
+      wrap.innerHTML = `
+        <div class="card">
+          <div class="muted">Нет тренировок в программе. Добавь через Админ → Program JSON.</div>
+        </div>
+      `;
+      return;
     }
 
-  }catch(err){
-    console.error(err);
-    alert("Не удалось удалить тренировку. Проверь Rules/доступ.");
+    wrap.innerHTML = names.map(name => `
+      <div class="workoutCard" data-workout="${name}">
+        <div class="workoutHead">
+          <div class="workoutMeta">
+            <h3>${name}</h3>
+            <div class="muted">${workoutSubtitle(name)}</div>
+          </div>
+          <button class="workoutDel" type="button" title="Удалить тренировку" data-del="${name}">✕</button>
+        </div>
+      </div>
+    `).join("");
+
+    // клик по карточке — старт тренировки
+    wrap.querySelectorAll(".workoutCard").forEach(card=>{
+      card.addEventListener("click", (e)=>{
+        if(e.target && e.target.closest(".workoutDel")) return;
+        startWorkout(card.dataset.workout);
+      });
+    });
+
+    // клик по кресту — удалить тренировку
+    wrap.querySelectorAll(".workoutDel").forEach(btn=>{
+      btn.addEventListener("click", async (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        const name = btn.dataset.del;
+        await deleteWorkoutFromProgram(name);
+      });
+    });
   }
-}
+
+  async function deleteWorkoutFromProgram(workoutName){
+    if(!user) return;
+
+    const ok = confirm(`Удалить тренировку "${workoutName}" из программы?`);
+    if(!ok) return;
+
+    try{
+      const next = { ...(PROGRAM || {}) };
+      delete next[workoutName];
+
+      PROGRAM = next;
+
+      // сохраняем ТОЛЬКО в программу текущего пользователя
+      await saveProgramDoc(user.uid, PROGRAM);
+
+      renderWorkoutSelect();
+
+      // если удалили тренировку, которая сейчас открыта — уходим на выбор
+      if(currentWorkout === workoutName){
+        currentWorkout = null;
+        currentExercise = null;
+        session = { date: todayISO(), workout:null, items:{} };
+        clearDraft();
+        setActiveTabUI("select");
+        renderWorkoutSelect();
+      }
+
+    }catch(err){
+      console.error(err);
+      alert("Не удалось удалить тренировку. Проверь Rules/доступ.");
+    }
+  }
 
   function startWorkout(w){
     currentWorkout = w;
@@ -908,6 +1023,9 @@ async function deleteWorkoutFromProgram(workoutName){
     currentExercise = list[0]?.name || null;
     renderExercise(true);
     setActiveTabUI("workout");
+
+    // NEW: сохраняем черновик сразу при старте
+    saveDraft();
   }
 
   function selectExercise(name){
@@ -916,6 +1034,9 @@ async function deleteWorkoutFromProgram(workoutName){
       p.classList.toggle("active", p.textContent===name);
     });
     renderExercise(true);
+
+    // NEW: сохраняем выбранное упражнение
+    saveDraft();
   }
 
   function getExObj(){
@@ -932,21 +1053,22 @@ async function deleteWorkoutFromProgram(workoutName){
       return;
     }
 
-    // кнопка "Видео" — показываем только если есть ссылка
-const vBtn = el("videoBtn");
-if(vBtn){
-  const hasV = isValidVideoUrl(ex.video);
-  vBtn.style.display = hasV ? "" : "none";
-}
+    // кнопка "Видео"
+    const vBtn = el("videoBtn");
+    if(vBtn){
+      const hasV = isValidVideoUrl(ex.video);
+      vBtn.style.display = hasV ? "" : "none";
+    }
 
     el("exTitle").textContent = ex.name;
     el("exScheme").textContent = ex.scheme;
-    // кнопка "Тренажёр" — показываем только если есть ссылка
-const mBtn = el("machineBtn");
-if(mBtn){
-  const has = !!(ex.machine && String(ex.machine).trim());
-  mBtn.style.display = has ? "" : "none";
-}
+
+    // кнопка "Тренажёр"
+    const mBtn = el("machineBtn");
+    if(mBtn){
+      const has = !!(ex.machine && String(ex.machine).trim());
+      mBtn.style.display = has ? "" : "none";
+    }
 
     if(resetSetNo){
       const sets = session.items[ex.name] || [];
@@ -957,100 +1079,100 @@ if(mBtn){
     renderSetsTable();
   }
 
-function isValidVideoUrl(url){
-  if(!url) return false;
-  const u = String(url).trim();
-  if(!u || u === "-" ) return false;
-  return /^https?:\/\//i.test(u);
-}
-
-function openVideoModal(url){
-  const modal = el("videoModal");
-  const vid = el("videoPlayer");
-  const err = el("videoErr");
-
-  err.style.display = "none";
-
-  // сброс
-  vid.pause();
-  vid.removeAttribute("src");
-  vid.load();
-
-  // ставим src
-  vid.src = url;
-
-  // если видео не грузится (403/404/тип не поддерживается)
-  vid.onloadeddata = () => { err.style.display = "none"; };
-  vid.onerror = () => { err.style.display = ""; };
-
-  modal.style.display = "";
-}
-
-function closeVideoModal(){
-  const modal = el("videoModal");
-  const vid = el("videoPlayer");
-
-  modal.style.display = "none";
-  vid.pause();
-  vid.removeAttribute("src");
-  vid.load();
-}
-
-el("videoBtn")?.addEventListener("click", ()=>{
-  const ex = getExObj();
-  const url = ex?.video ? String(ex.video).trim() : "";
-  if(!isValidVideoUrl(url)) return;
-  openVideoModal(url);
-});
-
-el("videoClose")?.addEventListener("click", closeVideoModal);
-el("videoBackdrop")?.addEventListener("click", closeVideoModal);
-
-// ESC закрывает и видео, и тренажёр
-window.addEventListener("keydown", (e)=>{
-  if(e.key === "Escape"){
-    closeVideoModal();
-    closeMachineModal();
+  function isValidVideoUrl(url){
+    if(!url) return false;
+    const u = String(url).trim();
+    if(!u || u === "-" ) return false;
+    return /^https?:\/\//i.test(u);
   }
-});
 
-function openMachineModal(url){
-  const modal = el("machineModal");
-  const img = el("machineImg");
-  const err = el("machineErr");
+  function openVideoModal(url){
+    const modal = el("videoModal");
+    const vid = el("videoPlayer");
+    const err = el("videoErr");
 
-  err.style.display = "none";
-  img.onload = () => { err.style.display = "none"; };
-  img.onerror = () => { err.style.display = ""; };
+    if(!modal || !vid || !err) return;
 
-  img.src = url;
-  modal.style.display = "";
-}
+    err.style.display = "none";
 
-function closeMachineModal(){
-  const modal = el("machineModal");
-  const img = el("machineImg");
-  modal.style.display = "none";
-  img.src = "";
-}
+    vid.pause();
+    vid.removeAttribute("src");
+    vid.load();
 
-el("machineBtn")?.addEventListener("click", ()=>{
-  const ex = getExObj();
-  const url = ex?.machine ? String(ex.machine).trim() : "";
-  if(!url) return;
-  openMachineModal(url);
-});
+    vid.src = url;
 
-el("machineClose")?.addEventListener("click", closeMachineModal);
-el("machineBackdrop")?.addEventListener("click", closeMachineModal);
+    vid.onloadeddata = () => { err.style.display = "none"; };
+    vid.onerror = () => { err.style.display = ""; };
 
-// ESC (на десктопе)
-window.addEventListener("keydown", (e)=>{
-  if(e.key === "Escape") closeMachineModal();
-});
+    modal.style.display = "";
+  }
 
+  function closeVideoModal(){
+    const modal = el("videoModal");
+    const vid = el("videoPlayer");
+    if(!modal || !vid) return;
+
+    modal.style.display = "none";
+    vid.pause();
+    vid.removeAttribute("src");
+    vid.load();
+  }
+
+  el("videoBtn")?.addEventListener("click", ()=>{
+    const ex = getExObj();
+    const url = ex?.video ? String(ex.video).trim() : "";
+    if(!isValidVideoUrl(url)) return;
+    openVideoModal(url);
+  });
+
+  el("videoClose")?.addEventListener("click", closeVideoModal);
+  el("videoBackdrop")?.addEventListener("click", closeVideoModal);
+
+  function openMachineModal(url){
+    const modal = el("machineModal");
+    const img = el("machineImg");
+    const err = el("machineErr");
+
+    if(!modal || !img || !err) return;
+
+    err.style.display = "none";
+    img.onload = () => { err.style.display = "none"; };
+    img.onerror = () => { err.style.display = ""; };
+
+    img.src = url;
+    modal.style.display = "";
+  }
+
+  function closeMachineModal(){
+    const modal = el("machineModal");
+    const img = el("machineImg");
+    if(!modal || !img) return;
+    modal.style.display = "none";
+    img.src = "";
+  }
+
+  el("machineBtn")?.addEventListener("click", ()=>{
+    const ex = getExObj();
+    const url = ex?.machine ? String(ex.machine).trim() : "";
+    if(!url) return;
+    openMachineModal(url);
+  });
+
+  el("machineClose")?.addEventListener("click", closeMachineModal);
+  el("machineBackdrop")?.addEventListener("click", closeMachineModal);
+
+  // ESC закрывает модалки
+  window.addEventListener("keydown", (e)=>{
+    if(e.key === "Escape"){
+      closeVideoModal();
+      closeMachineModal();
+    }
+  });
+
+  // ---------------------------
   // Save set (in session)
-  el("saveSet").addEventListener("click", ()=>{
+  // ---------------------------
+  el("saveSet")?.addEventListener("click", ()=>{
     const ex = getExObj();
     if(!ex) return;
 
@@ -1062,7 +1184,11 @@ window.addEventListener("keydown", (e)=>{
     session.items[ex.name].push({setNo, weight, reps});
 
     el("setNo").value = setNo + 1;
+
     renderSetsTable();
+
+    // NEW: сохраняем незавершённую тренировку
+    saveDraft();
   });
 
   function renderSetsTable(){
@@ -1074,6 +1200,7 @@ window.addEventListener("keydown", (e)=>{
 
     const sets = session.items[ex.name] || [];
     const wrap = el("setsTableWrap");
+    if(!wrap) return;
 
     if(!sets.length){
       wrap.className = "muted";
@@ -1102,8 +1229,10 @@ window.addEventListener("keydown", (e)=>{
     `;
   }
 
+  // ---------------------------
   // Finish workout -> save to Firestore
-  el("finishBtn").addEventListener("click", async ()=>{
+  // ---------------------------
+  el("finishBtn")?.addEventListener("click", async ()=>{
     if(!user || !session.workout) { setActiveTabUI("dashboard"); return; }
 
     const items = Object.entries(session.items).map(([ex, sets])=>({ ex, sets }));
@@ -1117,6 +1246,15 @@ window.addEventListener("keydown", (e)=>{
 
     try{
       await addDoc(collection(db, "users", user.uid, "sessions"), payload);
+
+      // NEW: чистим черновик только после успешного сохранения
+      clearDraft();
+
+      // сброс текущей тренировки
+      currentWorkout = null;
+      currentExercise = null;
+      session = { date: todayISO(), workout:null, items:{} };
+
       await loadHistory();
       renderDashboard();
       renderHistory();
@@ -1146,25 +1284,35 @@ window.addEventListener("keydown", (e)=>{
   }
 
   function renderDashboard(){
-    el("today").textContent = "Сегодня: " + fmt(todayISO());
+    const todayEl = el("today");
+    if(todayEl) todayEl.textContent = "Сегодня: " + fmt(todayISO());
 
     const GOAL_PER_WEEK = 3;
     const { start, end } = weekRangeISO();
     const count = history.filter(h => h.date >= start && h.date <= end).length;
 
-    el("monthStat").textContent = `${count} / ${GOAL_PER_WEEK} тренировок`;
+    const stat = el("monthStat");
+    if(stat) stat.textContent = `${count} / ${GOAL_PER_WEEK} тренировок`;
+
     const pct = Math.min(100, Math.round((count / GOAL_PER_WEEK) * 100));
-    el("monthBar").style.width = pct + "%";
+    const bar = el("monthBar");
+    if(bar) bar.style.width = pct + "%";
 
     const last = history[0];
-    if(!last){
-      el("lastWorkout").textContent = "Пока нет записей.";
-    } else {
-      el("lastWorkout").innerHTML = `
-        <div style="font-weight:900">${last.workout}</div>
-        <div class="muted">${fmt(last.date)} • Упражнений: ${(last.items||[]).length}</div>
-      `;
+    const lastWrap = el("lastWorkout");
+    if(lastWrap){
+      if(!last){
+        lastWrap.textContent = "Пока нет записей.";
+      } else {
+        lastWrap.innerHTML = `
+          <div style="font-weight:900">${last.workout}</div>
+          <div class="muted">${fmt(last.date)} • Упражнений: ${(last.items||[]).length}</div>
+        `;
+      }
     }
+
+    // NEW: меняем текст кнопки на главной
+    updateGoStartButton();
   }
 
   // ---------------------------
@@ -1173,6 +1321,8 @@ window.addEventListener("keydown", (e)=>{
   function renderMonthSelect(){
     const months = Array.from(new Set(history.map(h=>h.month))).sort().reverse();
     const sel = el("monthSelect");
+    if(!sel) return;
+
     sel.innerHTML = months.map(m=>`<option value="${m}">${monthTitle(m)}</option>`).join("");
     if(!months.length){
       sel.innerHTML = `<option value="">Нет данных</option>`;
@@ -1183,6 +1333,8 @@ window.addEventListener("keydown", (e)=>{
     renderMonthSelect();
 
     const list = el("historyList");
+    if(!list) return;
+
     if(!history.length){
       list.innerHTML = `<div class="card"><div class="muted">Пока нет записей.</div></div>`;
       return;
@@ -1237,14 +1389,15 @@ window.addEventListener("keydown", (e)=>{
     return rows.map(r=>r.map(csvEscape).join(",")).join("\n");
   }
 
-  el("exportMonth").addEventListener("click", ()=>{
-    const ym = el("monthSelect").value;
+  el("exportMonth")?.addEventListener("click", ()=>{
+    const sel = el("monthSelect");
+    const ym = sel ? sel.value : "";
     if(!ym) return alert("Нет данных.");
     const csv = buildCsvForMonth(ym);
     downloadText(`workouts_${ym}.csv`, csv);
   });
 
-  el("exportAllMonths").addEventListener("click", ()=>{
+  el("exportAllMonths")?.addEventListener("click", ()=>{
     const months = Array.from(new Set(history.map(h=>h.month))).sort();
     if(!months.length) return alert("Нет данных.");
     months.forEach(ym=>{
@@ -1291,6 +1444,7 @@ window.addEventListener("keydown", (e)=>{
   function renderProgress(){
     const rows = buildProgressLastVsPrev();
     const wrap = el("progressTableWrap");
+    if(!wrap) return;
 
     if(!rows.length){
       wrap.innerHTML = `<div class="muted">Недостаточно данных.</div>`;
@@ -1331,14 +1485,16 @@ window.addEventListener("keydown", (e)=>{
   // ---------------------------
   // Admin
   // ---------------------------
-  el("adminLoadBtn").addEventListener("click", async ()=>{
+  el("adminLoadBtn")?.addEventListener("click", async ()=>{
     if(!isAdminLocal()) return adminMsg("Нет доступа", true);
 
-    const targetUid = el("adminUserSelect").value;
+    const sel = el("adminUserSelect");
+    const targetUid = sel ? sel.value : "";
     const program = await loadProgramDoc(targetUid);
 
     if(!program){
-      el("adminProgramJson").value = "";
+      const ta = el("adminProgramJson");
+      if(ta) ta.value = "";
       return adminMsg("У пользователя нет сохранённой программы. Нажми «Скопировать дефолт» и «Сохранить».");
     }
 
@@ -1346,13 +1502,13 @@ window.addEventListener("keydown", (e)=>{
     adminMsg("Загружено.");
   });
 
-  el("adminCopyDefaultBtn").addEventListener("click", ()=>{
+  el("adminCopyDefaultBtn")?.addEventListener("click", ()=>{
     if(!isAdminLocal()) return adminMsg("Нет доступа", true);
     el("adminProgramJson").value = JSON.stringify(DEFAULT_PROGRAM, null, 2);
     adminMsg("Дефолт вставлен. Правь JSON и жми «Сохранить».");
   });
 
-  el("adminSaveBtn").addEventListener("click", async ()=>{
+  el("adminSaveBtn")?.addEventListener("click", async ()=>{
     if(!isAdminLocal()) return adminMsg("Нет доступа", true);
 
     const targetUid = el("adminUserSelect").value;
@@ -1406,16 +1562,12 @@ window.addEventListener("keydown", (e)=>{
 
     user = u;
 
-let loaded = await loadProgramDoc(user.uid);
-
-if(!loaded){
-  // если у пользователя ещё нет своей программы в Firestore — создаём её
-  await saveProgramDoc(user.uid, DEFAULT_PROGRAM);
-  loaded = DEFAULT_PROGRAM;
-}
-
-PROGRAM = loaded;
-renderWorkoutSelect();
+    let loaded = await loadProgramDoc(user.uid);
+    if(!loaded){
+      await saveProgramDoc(user.uid, DEFAULT_PROGRAM);
+      loaded = DEFAULT_PROGRAM;
+    }
+    PROGRAM = loaded;
 
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
@@ -1429,53 +1581,62 @@ renderWorkoutSelect();
     show("screenLogin", false);
     show("screenApp", true);
     show("logoutBtn", true);
-
     show("adminTabBtn", user.uid === ADMIN_UID);
 
     setActiveTabUI("dashboard");
+    renderWorkoutSelect();
     renderDashboard();
     renderHistory();
     renderProgress();
-    renderWorkoutSelect();
+
+    // NEW: после логина обновляем кнопку "Начать/Продолжить"
+    updateGoStartButton();
   });
 
   // ---------------------------
   // Login / Logout кнопки
   // ---------------------------
-  el("loginBtn").addEventListener("click", async ()=>{
-    const nick = el("nick").value.trim().toLowerCase();
-    const pass = el("pass").value.trim();
+  el("loginBtn")?.addEventListener("click", async ()=>{
+    const nick = (el("nick")?.value || "").trim().toLowerCase();
+    const pass = (el("pass")?.value || "").trim();
+
+    const hint = el("loginHint"); // может отсутствовать (у тебя закомментирован)
+    const showHint = (html)=>{
+      if(!hint) return;
+      hint.style.display = "";
+      hint.innerHTML = html;
+    };
 
     if(!nick || !pass){
-      el("loginHint").style.display = "";
-      el("loginHint").innerHTML = `<b>Ошибка:</b> Заполни никнейм и пароль.`;
+      showHint(`<b>Ошибка:</b> Заполни никнейм и пароль.`);
       return;
     }
 
     const email = NICK_TO_EMAIL[nick];
     if(!email){
-      el("loginHint").style.display = "";
-      el("loginHint").innerHTML = `<b>Ошибка:</b> Нет доступа.`;
+      showHint(`<b>Ошибка:</b> Нет доступа.`);
       return;
     }
 
     try{
       await signInWithEmailAndPassword(auth, email, pass);
-      // дальше всё подхватит onAuthStateChanged
     }catch(e){
-      el("loginHint").style.display = "";
-      el("loginHint").innerHTML = `<b>Ошибка:</b> Неверный никнейм или пароль.`;
+      showHint(`<b>Ошибка:</b> Неверный никнейм или пароль.`);
       console.error(e);
     }
   });
 
-  el("logoutBtn").addEventListener("click", async ()=>{
+  el("logoutBtn")?.addEventListener("click", async ()=>{
     await signOut(auth);
 
-    el("nick").value = "";
-    el("pass").value = "";
-    el("loginHint").style.display = "none";
-    el("loginHint").innerHTML = "";
+    if(el("nick")) el("nick").value = "";
+    if(el("pass")) el("pass").value = "";
+
+    const hint = el("loginHint");
+    if(hint){
+      hint.style.display = "none";
+      hint.innerHTML = "";
+    }
   });
 
   // ---------------------------
