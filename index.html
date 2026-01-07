@@ -398,6 +398,96 @@ html, body{
 }
 
 
+/* --- Quick add chips --- */
+.divider{height:1px; background:rgba(255,255,255,.08); margin:12px 0;}
+.chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.chip{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:8px 10px; border-radius:999px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--text);
+  font-size:13px;
+  cursor:pointer;
+  user-select:none;
+}
+.chip.on{
+  background:rgba(255,255,255,.08);
+  border-color:rgba(255,255,255,.18);
+}
+[data-theme="pink"] .chip.on{
+  background:rgba(255,62,168,.14);
+  border-color:rgba(255,62,168,.22);
+}
+
+/* --- Previous sets box --- */
+.prevBox{
+  border:1px dashed rgba(255,255,255,.22);
+  border-radius:16px;
+  padding:10px 12px;
+  margin-top:10px;
+  background:rgba(0,0,0,.08);
+}
+[data-theme="pink"] .prevBox{ background:rgba(255,62,168,.08); border-color:rgba(255,62,168,.22); }
+.prevTitle{font-weight:900; font-size:13px}
+.prevGrid{display:grid; gap:6px; margin-top:8px}
+.prevRow{
+  display:flex; justify-content:space-between; gap:10px;
+  font-size:13px;
+  color:var(--muted);
+}
+.prevRow b{color:var(--text)}
+.prevRow.current{color:var(--text)}
+.prevRow.current b{color:var(--text); text-decoration:underline}
+
+/* --- Undo toast --- */
+.toast{
+  position:fixed;
+  left:50%;
+  transform:translateX(-50%);
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  width:min(92vw, 420px);
+  background:rgba(20,20,22,.95);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:18px;
+  padding:12px 12px;
+  display:none;
+  z-index:99999;
+  box-shadow:0 14px 40px rgba(0,0,0,.35);
+}
+[data-theme="pink"] .toast{ background:rgba(26,18,25,.95); border-color:rgba(255,62,168,.12); }
+.toastRow{display:flex; align-items:center; justify-content:space-between; gap:10px}
+.toastMsg{font-size:13px; color:var(--muted)}
+.toastBtn{
+  padding:8px 10px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--text);
+  font-weight:900;
+  cursor:pointer;
+}
+
+
+/* FIX iOS: inputs in grid may overflow (especially date) */
+.row{
+  display:grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap:10px; /* можешь сделать 12 если хочешь чуть больше воздуха */
+}
+
+.row > div{ min-width:0; }     /* важно для grid */
+input, select, textarea{
+  min-width:0;                 /* важно для iOS */
+  max-width:100%;
+}
+
+/* на всякий случай именно для date */
+input[type="date"]{
+  max-width:100%;
+}
+
+
 </style>
 </head>
 
@@ -604,11 +694,36 @@ html, body{
               </div>
             </div>
 
+            <div class="divider"></div>
+<div style="font-weight:900; font-size:13px;">Быстрое добавление веса</div>
+<div class="muted" style="margin-top:6px;">
+  Нажимай сколько угодно раз — сумма накапливается и применится при сохранении.
+</div>
+
+<div class="chips" id="quickChips">
+  <div class="chip" data-add="2.5">+2.5</div>
+  <div class="chip" data-add="5">+5</div>
+  <div class="chip" data-add="10">+10</div>
+</div>
+
+<div style="margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+  <div class="muted" style="font-weight:900;">
+    Добавить: <span id="deltaTxt">+0</span> кг
+  </div>
+  <button class="btn secondary" id="clearDeltaBtn" style="width:auto; padding:10px 12px;">Сброс</button>
+</div>
+
             <div class="actions" style="margin-top:10px">
               <button class="btn primary" id="saveSet">Сохранить подход</button>
               <div class="muted">Сохранение идёт в Firestore после «Завершить».</div>
             </div>
           </div>
+
+<div class="prevBox" id="prevBox" style="display:none;">
+  <div class="prevTitle">Предыдущая тренировка по упражнению</div>
+  <div class="muted" id="prevMeta" style="margin-top:4px;"></div>
+  <div class="prevGrid" id="prevGrid"></div>
+</div>
 
           <div style="font-weight:900;margin-top:14px">Текущие подходы</div>
           <div id="setsTableWrap" style="margin-top:10px" class="muted">Пока нет подходов.</div>
@@ -774,6 +889,80 @@ html, body{
 // Helpers
 // ---------------------------
 function el(id) { return document.getElementById(id); }
+function haptic() {
+  // best-effort: на iOS PWA чаще всего 0 эффекта, но на Android/десктопе бывает
+  try { if (navigator.vibrate) navigator.vibrate(10); } catch(e) {}
+}
+
+function confirmDelete(text) {
+  haptic();
+  return confirm(text);
+}
+// ---------------------------
+// Quick add weight (delta)
+// ---------------------------
+let deltaAdd = 0;
+
+function setDeltaAdd(v) {
+  deltaAdd = Math.round(v * 10) / 10;
+  const t = el("deltaTxt");
+  if (t) t.textContent = (deltaAdd >= 0 ? "+" : "") + deltaAdd;
+}
+
+function addDelta(x) {
+  setDeltaAdd(deltaAdd + x);
+}
+
+el("quickChips")?.addEventListener("click", (e) => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  haptic();
+
+  const add = Number(chip.dataset.add || 0);
+  if (!Number.isFinite(add) || add <= 0) return;
+
+  addDelta(add);
+
+  chip.classList.add("on");
+  setTimeout(() => chip.classList.remove("on"), 120);
+});
+
+el("clearDeltaBtn")?.addEventListener("click", () => {
+  haptic();
+  setDeltaAdd(0);
+});
+
+// init
+setDeltaAdd(0);
+
+/* --- Undo toast (5s) --- */
+let undoTimer = null;
+let undoPayload = null;
+
+function showUndoToast(message, payload) {
+  const toast = el("toast");
+  if (!toast) return;
+
+  el("toastMsg").textContent = message;
+  toast.style.display = "";
+
+  undoPayload = payload;
+
+  if (undoTimer) clearTimeout(undoTimer);
+  undoTimer = setTimeout(() => {
+    toast.style.display = "none";
+    undoPayload = null;
+  }, 5000);
+}
+
+el("toastUndoBtn")?.addEventListener("click", () => {
+  haptic();
+  if (!undoPayload) return;
+  undoPayload.undo();
+  undoPayload = null;
+  el("toast").style.display = "none";
+  if (undoTimer) clearTimeout(undoTimer);
+});
 
 function show(id, yes = true) {
   const n = el(id);
@@ -788,14 +977,12 @@ function setSub(txt) {
 
 // LOADING helper
 function setLoading(on, text = "Загрузка") {
-  const scr = el("screenLoading");
+  const scr = el("screenBoot"); // ✅ было screenLoading
   if (scr) scr.style.display = on ? "" : "none";
 
-  // текст внутри лоадера (если есть)
   const t = scr?.querySelector?.(".loadingText");
   if (t) t.textContent = text;
 
-  // блокируем прокрутку пока грузимся
   document.body.style.overflow = on ? "hidden" : "";
 }
 
@@ -1503,35 +1690,107 @@ function toNumOrNull(v) {
     return /^https?:\/\//i.test(u);
   }
 
-  function renderExercise(resetSetNo = false) {
-    const ex = getExObj();
-    if (!ex) {
-      el("exTitle").textContent = "Нет упражнений";
-      el("exScheme").textContent = "—";
-      el("setsTableWrap").innerHTML = "—";
-      return;
-    }
-
-    const vBtn = el("videoBtn");
-    if (vBtn) vBtn.style.display = isValidVideoUrl(ex.video) ? "" : "none";
-
-    el("exTitle").textContent = ex.name;
-    el("exScheme").textContent = ex.scheme;
-
-    const mBtn = el("machineBtn");
-    if (mBtn) {
-      const has = !!(ex.machine && String(ex.machine).trim());
-      mBtn.style.display = has ? "" : "none";
-    }
-
-    if (resetSetNo) {
-      const sets = session.items[ex.name] || [];
-      const next = sets.length ? (Math.max(...sets.map(s => Number(s.setNo || 0))) + 1) : 1;
-      el("setNo").value = next;
-    }
-
-    renderSetsTable();
+function renderExercise(resetSetNo = false) {
+  const ex = getExObj();
+  if (!ex) {
+    el("exTitle").textContent = "Нет упражнений";
+    el("exScheme").textContent = "—";
+    el("setsTableWrap").innerHTML = "—";
+    renderPrevBox(); // чтобы скрыть превью
+    return;
   }
+
+  const vBtn = el("videoBtn");
+  if (vBtn) vBtn.style.display = isValidVideoUrl(ex.video) ? "" : "none";
+
+  el("exTitle").textContent = ex.name;
+  el("exScheme").textContent = ex.scheme;
+
+  const mBtn = el("machineBtn");
+  if (mBtn) {
+    const has = !!(ex.machine && String(ex.machine).trim());
+    mBtn.style.display = has ? "" : "none";
+  }
+
+  if (resetSetNo) {
+    const sets = session.items[ex.name] || [];
+    const next = sets.length ? (Math.max(...sets.map(s => Number(s.setNo || 0))) + 1) : 1;
+    el("setNo").value = next;
+  }
+
+  renderSetsTable();
+  renderPrevBox();
+  autoFillFromPrevIfDefault();
+}
+
+
+  function getLastSessionForExercise(exName) {
+  for (const h of (history || [])) {
+    const it = (h.items || []).find(x => x.ex === exName);
+    if (it && (it.sets || []).length) return { date: h.date, sets: it.sets };
+  }
+  return null;
+}
+
+
+
+
+el("setNo")?.addEventListener("change", () => {
+  renderPrevBox();
+  autoFillFromPrevIfDefault();
+});
+
+
+function renderPrevBox() {
+  const ex = getExObj();
+  const box = el("prevBox");
+  const grid = el("prevGrid");
+  const meta = el("prevMeta");
+  if (!box || !grid || !meta) return;
+
+  if (!ex) { box.style.display = "none"; return; }
+
+  const last = getLastSessionForExercise(ex.name);
+  if (!last) { box.style.display = "none"; return; }
+
+  box.style.display = "";
+  meta.textContent = `Дата: ${fmt(last.date)} • Подходов: ${(last.sets || []).length}`;
+
+  const curSetNo = Number(el("setNo").value || 1);
+
+  grid.innerHTML = (last.sets || []).map(s => {
+    const isCur = Number(s.setNo) === curSetNo;
+    return `
+      <div class="prevRow ${isCur ? "current" : ""}">
+        <div>Подход <b>${s.setNo}</b></div>
+        <div><b>${s.weight}</b> кг × <b>${s.reps}</b></div>
+      </div>
+    `;
+  }).join("");
+}
+
+function autoFillFromPrevIfDefault() {
+  const ex = getExObj();
+  if (!ex) return;
+
+  const last = getLastSessionForExercise(ex.name);
+  if (!last) return;
+
+  const setNo = Number(el("setNo").value || 1);
+  const prevSet = (last.sets || []).find(s => Number(s.setNo) === setNo);
+  if (!prevSet) return;
+
+  const w = Number(el("weight").value || 0);
+  const r = Number(el("reps").value || 0);
+
+  if (w === 0) el("weight").value = prevSet.weight;
+  if (r === 12) el("reps").value = prevSet.reps;
+}
+
+el("setNo")?.addEventListener("input", () => {
+  renderPrevBox();
+  autoFillFromPrevIfDefault();
+});
 
   // ---------------------------
   // Video modal
@@ -1619,22 +1878,36 @@ function toNumOrNull(v) {
   // ---------------------------
   // Sets: add/edit/delete (как в демо)
   // ---------------------------
-  el("saveSet")?.addEventListener("click", () => {
-    const ex = getExObj();
-    if (!ex) return;
+el("saveSet")?.addEventListener("click", () => {
+  haptic();
 
-    const setNo = Number(el("setNo").value || 1);
-    const weight = Number(el("weight").value || 0);
-    const reps = Number(el("reps").value || 0);
+  const ex = getExObj();
+  if (!ex) return;
 
-    if (!session.items[ex.name]) session.items[ex.name] = [];
-    session.items[ex.name].push({ setNo, weight, reps });
+  const setNo = Number(el("setNo").value || 1);
 
-    el("setNo").value = setNo + 1;
+  const baseWeight = Number(el("weight").value || 0);
+  const finalWeight = Math.round((baseWeight + deltaAdd) * 10) / 10;
 
-    renderSetsTable();
-    saveDraft();
-  });
+  const reps = Number(el("reps").value || 0);
+
+  if (!Number.isFinite(setNo) || setNo < 1) return alert("Некорректный номер подхода");
+  if (!Number.isFinite(finalWeight) || finalWeight < 0) return alert("Некорректный вес");
+  if (!Number.isFinite(reps) || reps < 0) return alert("Некорректные повторы");
+
+  if (!session.items[ex.name]) session.items[ex.name] = [];
+  session.items[ex.name].push({ setNo, weight: finalWeight, reps });
+  session.items[ex.name].sort((a, b) => a.setNo - b.setNo);
+
+  renderSetsTable();
+  saveDraft();
+
+  // сброс добавки после сохранения
+  setDeltaAdd(0);
+
+  // следующий номер подхода
+  el("setNo").value = setNo + 1;
+});
 
   function renderSetsTable() {
     const ex = getExObj();
@@ -2033,11 +2306,9 @@ function toNumOrNull(v) {
  await setPersistence(auth, browserLocalPersistence);
 
 onAuthStateChanged(auth, async (u) => {
-  // Единый лоадер
   setLoading(true, "Проверяю вход…");
 
-  // на всякий — прячем всё, пока грузим
-  show("screenBoot", false);
+  // прячем экраны, но BOOT НЕ прячем
   show("screenLogin", false);
   show("screenApp", false);
   show("logoutBtn", false);
@@ -2052,7 +2323,6 @@ onAuthStateChanged(auth, async (u) => {
       PROGRAM = DEFAULT_PROGRAM;
 
       setLoading(false);
-
       show("screenLogin", true);
       setSub("Вход");
       return;
@@ -2158,7 +2428,6 @@ onAuthStateChanged(auth, async (u) => {
 // ---------------------------
 // Initial UI (no flicker)
 // ---------------------------
-show("screenLoading", false);
 show("screenBoot", true);
 show("screenLogin", false);
 show("screenApp", false);
@@ -2166,6 +2435,14 @@ show("logoutBtn", false);
 show("adminTabBtn", false);
 setSub("Загрузка…");
 </script>
+
+<div class="toast" id="toast">
+  <div class="toastRow">
+    <div class="toastMsg" id="toastMsg">Удалено</div>
+    <button class="toastBtn" id="toastUndoBtn">UNDO (5s)</button>
+  </div>
+</div>
+
 
 
 <div id="machineModal" style="display:none; position:fixed; inset:0; z-index:9999;">
