@@ -24,18 +24,23 @@
   }
 
   /* Pink theme: тёмная база + розовый акцент */
-  [data-theme="pink"]{
-    --bg:#0f0b0e;
-    --panel:#161116;
-    --border:#2a1d27;
-    --text:#ffffff;
-    --muted:rgba(255,255,255,.65);
-    --accent:#dd77af;
-    --btn:#dd77af;
-    --btnText:#ffffff;
-    --btn2:#1e161c;
-    --btn2Text:#ffffff;
-  }
+[data-theme="pink"]{
+  --bg: linear-gradient(
+    180deg,
+    #000000 0%,
+    #220620 100%
+  );
+
+  --panel:#161116;
+  --border:#2a1d27;
+  --text:#ffffff;
+  --muted:rgba(255,255,255,.65);
+  --accent:#dd77af;
+  --btn:#dd77af;
+  --btnText:#ffffff;
+  --btn2:#1e161c;
+  --btn2Text:#ffffff;
+}
 
   /* Pink theme: delta colors */
 [data-theme="pink"] .delta.up,
