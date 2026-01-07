@@ -333,6 +333,12 @@
         </div>
       </div>
 
+<!-- BOOT (показывается пока Firebase проверяет сессию) -->
+<div id="screenBoot" class="card">
+  <div style="font-weight:900;font-size:16px">Загрузка…</div>
+  <div class="muted" style="margin-top:6px">Проверяю вход</div>
+</div>
+
       <div class="right">
         <div class="switch">
           <span>Black</span>
@@ -346,8 +352,8 @@
     </div>
 
     <!-- LOGIN -->
-    <div id="screenLogin" class="card">
-      <h2>Вход</h2>
+        <div id="screenLogin" class="card" style="display:none;">
+        <h2>Вход</h2>
    <!--   <div class="muted">Вход по никнейму и паролю. Доступ только 2 пользователям.</div> -->
 
       <label>Никнейм</label>
@@ -871,10 +877,16 @@ datasets: [{
     });
   }
 
-  function themeLineColor() {
+function themeLineColor() {
+  const isPink = document.documentElement.getAttribute("data-theme") === "pink";
+
+  // black theme → синий
+  if (!isPink) return "#4da3ff"; // приятный синий, не кислотный
+
+  // pink theme → текущий акцент
   const root = document.documentElement;
   const c = getComputedStyle(root).getPropertyValue("--btn").trim();
-  return c || "#ffffff";
+  return c || "#dd77af";
 }
 
   function renderBodyMeasTable() {
@@ -1876,22 +1888,26 @@ datasets: [{
     }
   });
 
-  // ---------------------------
-  // Auth: autologin (правильный порядок + body init 1 раз)
-  // ---------------------------
-  await setPersistence(auth, browserLocalPersistence);
-
   onAuthStateChanged(auth, async (u) => {
+  // пока Firebase + Firestore грузятся — держим boot
+  show("screenBoot", true);
+  show("screenLogin", false);
+  show("screenApp", false);
+  show("logoutBtn", false);
+  show("adminTabBtn", false);
+  setSub("Загрузка…");
+
+  try {
     if (!u) {
       user = null;
       profile = null;
       history = [];
       PROGRAM = DEFAULT_PROGRAM;
 
+      // показываем login
+      show("screenBoot", false);
       show("screenLogin", true);
       show("screenApp", false);
-      show("logoutBtn", false);
-      show("adminTabBtn", false);
       setSub("Вход");
       return;
     }
@@ -1914,7 +1930,7 @@ datasets: [{
     // history
     await loadHistory();
 
-    // body weekly + init UI (guard)
+    // body weekly + init UI
     await loadBodyWeekly();
     initBodyUI();
     renderBodyWeightChart();
@@ -1924,6 +1940,8 @@ datasets: [{
     el("profileName").textContent = profile.nick || "—";
     setSub(profile.nick || "—");
 
+    // теперь можно показывать app
+    show("screenBoot", false);
     show("screenLogin", false);
     show("screenApp", true);
     show("logoutBtn", true);
@@ -1934,9 +1952,17 @@ datasets: [{
     renderDashboard();
     renderHistory();
     renderProgress();
-
     updateGoStartButton();
-  });
+  } catch (err) {
+    console.error("Auth init failed:", err);
+
+    // если что-то упало — лучше показать login, чем пустой app
+    show("screenBoot", false);
+    show("screenLogin", true);
+    show("screenApp", false);
+    setSub("Вход");
+  }
+});
 
   // ---------------------------
   // Login / Logout
@@ -1984,13 +2010,15 @@ datasets: [{
     }
   });
 
-  // ---------------------------
-  // Initial UI
-  // ---------------------------
-  show("screenApp", false);
-  show("logoutBtn", false);
-  show("adminTabBtn", false);
-  setSub("Вход");
+// ---------------------------
+// Initial UI (no flicker)
+// ---------------------------
+show("screenBoot", true);
+show("screenLogin", false);
+show("screenApp", false);
+show("logoutBtn", false);
+show("adminTabBtn", false);
+setSub("Загрузка…");
 </script>
 
 
