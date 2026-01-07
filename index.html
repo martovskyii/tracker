@@ -1,2171 +1,841 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
-  <title>Workout Tracker</title>
-  <meta name="theme-color" content="#0b0b0c" />
-  <link rel="icon" href="https://ik.imagekit.io/tgquwnwxx/Frame%2044.svg" type="image/svg">
-  <link rel="apple-touch-icon" href="https://ik.imagekit.io/tgquwnwxx/Frame%2044.svg">
-<style>
-  :root{
-    --bg:#0b0b0c;
-    --panel:#121214;
-    --border:#2a2a2a;
-    --text:#ffffff;
-    --muted:rgba(255,255,255,.70);
-    --accent:#ffffff;
-    --btn:#ffffff;
-    --btnText:#000000;
-    --btn2:#1a1a1b;
-    --btn2Text:#ffffff;
-    --danger:#ff6b6b;
-    --success:#32d583;
-  }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Workout Tracker — Rings Demo</title>
+  <style>
+    :root{
+      --bg:#0b0b0c; --panel:#121214; --border:#2a2a2a;
+      --text:#fff; --muted:rgba(255,255,255,.7);
+      --btn:#ffffff; --btnText:#000; --btn2:#1a1a1b; --btn2Text:#fff;
+      --danger:#ff6b6b; --success:#32d583;
+      --ringMove:#4da3ff;
+      --ringTrain:#32d583;
+      --ringBody:#dd77af;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:var(--bg); color:var(--text);
+    }
+    .wrap{max-width:980px;margin:0 auto;padding:18px 14px 32px}
+    .top{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
+      margin-bottom:12px;
+    }
+    .card{
+      border:1px solid var(--border);
+      background:var(--panel);
+      border-radius:22px;
+      padding:14px;
+      margin:12px 0;
+    }
+    h1{margin:0;font-size:18px}
+    .muted{color:var(--muted);font-size:13px}
+    .grid{
+      display:grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap:12px;
+    }
+    @media(max-width:860px){
+      .grid{grid-template-columns:1fr}
+    }
 
-  /* Pink theme: тёмная база + розовый акцент */
-  [data-theme="pink"]{
-    --bg:#0f0b0e;
-    --panel:#161116;
-    --border:#2a1d27;
-    --text:#ffffff;
-    --muted:rgba(255,255,255,.65);
-    --accent:#dd77af;
-    --btn:#dd77af;
-    --btnText:#ffffff;
-    --btn2:#1e161c;
-    --btn2Text:#ffffff;
-  }
+    /* Rings */
+    .ringsRow{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+    .ringBox{display:flex;align-items:center;gap:12px}
+    .ringCanvas{width:84px;height:84px}
+    .ringMeta b{display:block;font-size:14px}
+    .ringMeta span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+    .ringPct{
+      margin-top:6px; font-size:12px; color:var(--muted);
+      display:flex; gap:8px; align-items:center;
+    }
+    .pill{
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:transparent;
+      color:var(--muted);
+      font-size:12px;
+      margin:6px 6px 0 0;
+      user-select:none;
+    }
+    .pill.ok{border-color:rgba(50,213,131,.4); color:rgba(50,213,131,.95)}
+    .pill.warn{border-color:rgba(255,107,107,.45); color:rgba(255,107,107,.95)}
+    .pill.pink{border-color:rgba(221,119,175,.45); color:rgba(221,119,175,.95)}
+    .pill.blue{border-color:rgba(77,163,255,.45); color:rgba(77,163,255,.95)}
 
-  *{box-sizing:border-box}
-  body{
-    margin:0;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    background:var(--bg);
-    color:var(--text);
-  }
-  .wrap{max-width:420px;margin:0 auto;padding:16px 14px 28px}
-  .topbar{
-    display:flex; align-items:center; justify-content:space-between;
-    gap:12px; margin:8px 0 14px;
-  }
-  .brand{display:flex; align-items:center; gap:10px}
-  .logo{
-    width:40px;height:40px;border-radius:16px;
-    border:1px solid var(--border);
-    background:var(--panel);
-    display:grid;place-items:center;
-    font-weight:900;color:var(--accent);
-  }
-  .title{line-height:1.1}
-  .title b{display:block;font-size:14px}
-  .title span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
-  .right{display:flex;align-items:center;gap:10px}
-  .switch{
-    display:flex; align-items:center; gap:8px;
-    border:1px solid var(--border); background:var(--panel);
-    padding:6px 10px;border-radius:999px;
-    font-size:12px;color:var(--muted);
-  }
-  .toggle{
-    width:42px;height:24px;border-radius:999px;
-    border:1px solid var(--border);
-    background:rgba(0,0,0,.06);
-    position:relative; cursor:pointer;
-  }
-  .knob{
-    position:absolute; top:2px; left:2px;
-    width:20px; height:20px; border-radius:999px;
-    background:var(--btn);
-    transition:transform .18s ease;
-  }
-  [data-theme="pink"] .knob{ transform:translateX(18px); }
+    /* Controls */
+    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+    input, select{
+      width:100%;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:transparent;
+      color:var(--text);
+      outline:none;
+      font-size:16px;
+      -webkit-text-size-adjust:100%;
+    }
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .btn{
+      width:100%;
+      border:none;
+      padding:12px 14px;
+      border-radius:16px;
+      cursor:pointer;
+      font-weight:800;
+    }
+    .btn.primary{background:var(--btn);color:var(--btnText)}
+    .btn.secondary{background:var(--btn2);color:var(--btn2Text);border:1px solid var(--border)}
+    .btn.danger{background:transparent;border:1px solid rgba(255,107,107,.45);color:rgba(255,107,107,.95)}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
 
-  .iconbtn{
-    width:40px;height:40px;border-radius:16px;
-    border:1px solid var(--border); background:var(--panel);
-    color:var(--text); cursor:pointer;
-  }
-  .card{
-    border:1px solid var(--border);
-    background:var(--panel);
-    border-radius:22px;
-    padding:14px;
-    margin:12px 0;
-  }
-  h2{margin:0 0 6px;font-size:18px}
-  .muted{color:var(--muted);font-size:13px}
-  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
-
-  input, select, textarea{
-    width:100%;
-    padding:12px 12px;
-    border-radius:14px;
-    border:1px solid var(--border);
-    background:transparent;
-    color:var(--text);
-    outline:none;
-
-    /* iOS Safari: не зумит при фокусе */
-    font-size:16px;
-    -webkit-text-size-adjust:100%;
-  }
-
-  input::placeholder{color:rgba(255,255,255,.35)}
-  [data-theme="pink"] input::placeholder{color:rgba(255,255,255,.35)}
-
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .btn{
-    width:100%;
-    border:none;
-    padding:12px 14px;
-    border-radius:16px;
-    cursor:pointer;
-    font-weight:700;
-  }
-  .btn.primary{background:var(--btn);color:var(--btnText)}
-  .btn.secondary{background:var(--btn2);color:var(--btn2Text);border:1px solid var(--border)}
-  .btn:disabled{opacity:.55;cursor:not-allowed}
-  .alert{
-    border:1px solid var(--border);
-    border-radius:16px;
-    padding:10px 12px;
-    font-size:13px;color:var(--muted);
-    margin:10px 0 0;
-  }
-  .alert b{color:var(--danger)}
-
-  /* Tabs: горизонтальный скролл */
-  .tabs{
-    display:flex;
-    gap:6px;
-    border:1px solid var(--border);
-    background:var(--panel);
-    border-radius:18px;
-    padding:6px;
-    position:sticky; top:0; z-index:10;
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
-    scrollbar-width:none;
-  }
-  .tabs::-webkit-scrollbar{display:none;}
-
-  #bodyWeightChart{ width:100%; height:220px; }
-
-  .tab{
-    flex:0 0 auto;
-    padding:10px 10px;
-    border-radius:14px;
-    font-size:12px;
-    text-align:center;
-    cursor:pointer;
-    color:var(--muted);
-    user-select:none;
-    border:1px solid transparent;
-    white-space:nowrap;
-  }
-  .tab.active{
-    background:rgba(0,0,0,.06);
-    border-color:var(--border);
-    color:var(--text);
-  }
-  [data-theme="pink"] .tab.active{
-    background:rgba(255,62,168,.10);
-  }
-
-  .grid3{display:grid;grid-template-columns:1fr;gap:10px}
-  .workoutCard{
-    border:1px solid var(--border);
-    background:var(--panel);
-    border-radius:22px;
-    padding:14px;
-    cursor:pointer;
-  }
-  .workoutCard:hover{opacity:.95}
-  .workoutCard h3{margin:0;font-size:16px}
-
-  .pill{
-    display:inline-block;
-    padding:7px 10px;
-    border-radius:999px;
-    border:1px solid var(--border);
-    background:transparent;
-    color:var(--muted);
-    font-size:12px;
-    margin:6px 6px 0 0;
-    cursor:pointer;
-  }
-  .pill.active{
-    background:var(--btn);
-    color:var(--btnText);
-    border-color:transparent;
-  }
-
-  table{
-    width:100%;
-    border-collapse:collapse;
-    overflow:hidden;
-    border-radius:18px;
-    border:1px solid var(--border);
-  }
-  th, td{
-    padding:10px 10px;
-    border-bottom:1px solid rgba(255,255,255,.10);
-    font-size:13px;
-    text-align:left;
-  }
-  [data-theme="pink"] th, [data-theme="pink"] td{
-    border-bottom:1px solid rgba(255,255,255,.10);
-  }
-  th{color:var(--muted);font-weight:700;background:rgba(255,255,255,.06)}
-  [data-theme="pink"] th{background:rgba(255,255,255,.06)}
-  tr:last-child td{border-bottom:none}
-
-  .actions{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
-  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-
-  .kpi{
-    border:1px solid var(--border);
-    background:rgba(255,255,255,.04);
-    border-radius:18px;
-    padding:12px;
-    margin-top:10px;
-  }
-
-  .bar{
-    height:10px;border-radius:999px;
-    background:rgba(255,255,255,.10);
-    overflow:hidden;border:1px solid var(--border);
-    margin-top:8px;
-  }
-  .bar > div{
-    height:100%;
-    width:0%;
-    background:var(--btn);
-    transition:width .25s ease;
-  }
-
-  .deltaPlus{color:var(--success);font-weight:900}
-  .deltaMinus{color:var(--danger);font-weight:900}
-  .footer{margin-top:18px;text-align:center;font-size:11px;color:var(--muted)}
-
-  /* ---------------------------
-     FIX: Progress table on iPhone
-     --------------------------- */
-  .tableScroll{
-    width:100%;
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
-  }
-  .tableScroll table{
-    width:100%;
-    min-width:520px; /* чтобы Δ не уезжал */
-  }
-  #progressTableWrap th,
-  #progressTableWrap td{
-    white-space:nowrap;
-  }
-  #progressTableWrap th:first-child,
-  #progressTableWrap td:first-child{
-    white-space:normal;
-    word-break:break-word;
-    width:48%;
-  }
-  #progressTableWrap th:nth-child(2),
-  #progressTableWrap td:nth-child(2),
-  #progressTableWrap th:nth-child(3),
-  #progressTableWrap td:nth-child(3){
-    width:18%;
-  }
-  #progressTableWrap th:nth-child(4),
-  #progressTableWrap td:nth-child(4){
-    width:16%;
-    text-align:right;
-  }
-
-.delta{font-weight:900}
-.delta.up{color:var(--success)}  /* + */
-.delta.down{color:var(--danger)} /* - */
-.delta.eq{color:rgba(255,255,255,.65)}
-
-  .workoutHead{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:10px;
-}
-
-.workoutMeta{ min-width:0; }
-
-.workoutMeta h3{
-  margin:0;
-  font-size:16px;
-}
-
-.workoutDel{
-  width:34px;
-  height:34px;
-  border-radius:12px;
-  border:1px solid var(--border);
-  background:transparent;
-  color:var(--muted);
-  cursor:pointer;
-  flex:0 0 auto;
-}
-
-.workoutDel:hover{
-  color:var(--danger);
-  border-color:rgba(255,107,107,.45);
-}
-
-
-/* Loading screen */
-.loadingScreen{
-  position:fixed;
-  inset:0;
-  z-index:99999;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:var(--bg);
-}
-
-.loadingInner{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:12px;
-  padding:18px 16px;
-  border-radius:22px;
-}
-
-.loadingText{
-  font-size:14px;
-  font-weight:800;
-  color:var(--muted);
-  letter-spacing:.2px;
-}
-
-/* Spinner */
-.spinner{
-  width:34px;
-  height:34px;
-  border-radius:999px;
-  border:3px solid rgba(255,255,255,.16);
-  border-top-color: var(--btn);
-  animation:spin .9s linear infinite;
-}
-
-/* Pink: можно чуть ярче */
-[data-theme="pink"] .spinner{
-  border:3px solid rgba(255,255,255,.14);
-  border-top-color: var(--btn);
-}
-
-@keyframes spin{
-  to { transform:rotate(360deg); }
-}
-
-
-html, body{
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-}
-
-/* safe-area для айфонов с вырезом */
-.wrap{
-  padding-top: calc(16px + env(safe-area-inset-top));
-  padding-right: calc(14px + env(safe-area-inset-right));
-  padding-bottom: calc(28px + env(safe-area-inset-bottom));
-  padding-left: calc(14px + env(safe-area-inset-left));
-}
-
-/* sticky tabs учитывают safe-area сверху */
-.tabs{
-  top: env(safe-area-inset-top);
-}
-
-
-</style>
+    /* Table */
+    table{
+      width:100%;
+      border-collapse:collapse;
+      overflow:hidden;
+      border-radius:18px;
+      border:1px solid var(--border);
+    }
+    th, td{
+      padding:10px 10px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      font-size:13px;
+      text-align:left;
+    }
+    th{color:var(--muted);font-weight:800;background:rgba(255,255,255,.06)}
+    tr:last-child td{border-bottom:none}
+    .actionsCell{white-space:nowrap}
+    .miniBtn{
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:transparent;
+      color:var(--text);
+      cursor:pointer;
+      font-weight:800;
+      font-size:12px;
+    }
+    .miniBtn.del{border-color:rgba(255,107,107,.45);color:rgba(255,107,107,.95)}
+    .miniBtn.pr{border-color:rgba(50,213,131,.45);color:rgba(50,213,131,.95)}
+    .kpi{
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.04);
+      border-radius:18px;
+      padding:12px;
+      margin-top:10px;
+    }
+    .bar{
+      height:10px;border-radius:999px;
+      background:rgba(255,255,255,.10);
+      overflow:hidden;border:1px solid var(--border);
+      margin-top:8px;
+    }
+    .bar > div{
+      height:100%;
+      width:0%;
+      background:var(--btn);
+      transition:width .25s ease;
+    }
+    .small{font-size:12px;color:var(--muted)}
+    .footer{margin-top:18px;text-align:center;font-size:11px;color:var(--muted)}
+    code{color:rgba(255,255,255,.85)}
+  </style>
 </head>
-
 <body>
-  <div class="wrap" id="app">
-    <div class="topbar">
-      <div class="brand">
-        <div class="logo">WT</div>
-        <div class="title">
-          <b>Tracker</b>
-          <span id="sub">Вход</span>
-        </div>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Rings Demo</h1>
+        <div class="muted">Тестовая страница: 3 кольца (Move / Train / Body) + стрики + бейджи. Данные живут в <code>localStorage</code>.</div>
       </div>
+      <div style="min-width:220px">
+        <button class="btn danger" id="resetAll">Сбросить демо-данные</button>
+      </div>
+    </div>
 
-
-
-
-<!-- BOOT (единственный лоадер) -->
-<div id="screenBoot" class="loadingScreen" style="display:none;">
-  <div class="loadingInner">
-    <div class="spinner" aria-hidden="true"></div>
-    <div class="loadingText">Проверяю вход…</div>
-  </div>
-</div>
-
-      <div class="right">
-        <div class="switch">
-          <span>Black</span>
-          <div class="toggle" id="themeToggle" title="Переключить тему">
-            <div class="knob"></div>
+    <div class="card">
+      <div class="ringsRow">
+        <div class="ringBox">
+          <canvas class="ringCanvas" id="ringMove" width="84" height="84"></canvas>
+          <div class="ringMeta">
+            <b>Move</b>
+            <span>Тренировки / неделя</span>
+            <div class="ringPct" id="moveText">—</div>
           </div>
-          <span>Pink</span>
-        </div>
-        <button class="iconbtn" id="logoutBtn" title="Выйти" style="display:none;">⎋</button>
-      </div>
-    </div>
-
-    <!-- LOGIN -->
-        <div id="screenLogin" class="card" style="display:none;">
-        <h2>Вход</h2>
-   <!--   <div class="muted">Вход по никнейму и паролю. Доступ только 2 пользователям.</div> -->
-
-      <label>Никнейм</label>
-      <input id="nick" placeholder="nickname" />
-
-      <label>Пароль</label>
-      <input id="pass" type="password" placeholder="••••••••" />
-
-    <!--  <div id="loginHint" class="alert">
-        Пример: nick = <b>gorilla</b> или <b>girl</b>
-      </div> -->
-
-      <div class="actions">
-        <button class="btn primary" id="loginBtn">Войти</button>
-      </div>
-    </div>
-
-    <!-- APP -->
-    <div id="screenApp" style="display:none;">
-      <div class="tabs">
-        <div class="tab active" data-tab="dashboard">Главная</div>
-        <div class="tab" data-tab="select">Тренировки</div>
-        <div class="tab" data-tab="history">История</div>
-        <div class="tab" data-tab="progress">Прогресс</div>
-        <div class="tab" data-tab="admin" id="adminTabBtn" style="display:none;">Админ</div>
-      </div>
-
-<!-- DASHBOARD -->
-<div id="tab-dashboard" class="tabpane">
-  <div class="card">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
-      <div>
-        <div class="muted">Профиль</div>
-        <div style="font-size:20px;font-weight:900;margin-top:2px" id="profileName">—</div>
-        <div class="muted" id="today"></div>
-      </div>
-    </div>
-
-    <div class="kpi">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-weight:800;font-size:14px">Эта неделя</div>
-        <div class="muted" id="monthStat">0 тренировок</div>
-      </div>
-      <div class="bar"><div id="monthBar"></div></div>
-      <div class="muted" style="margin-top:8px">План = 3 тренировки/неделю.</div>
-    </div>
-
-    <div class="actions">
-      <button class="btn primary" id="goStart">Начать тренировку</button>
-      <div class="two">
-        <button class="btn secondary" id="goHistory">История</button>
-        <button class="btn secondary" id="goProgress">Прогресс</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div style="font-weight:900;margin-bottom:8px">Последняя тренировка</div>
-    <div id="lastWorkout" class="muted">Пока нет записей.</div>
-  </div>
-
-  <!-- BODY (только на главной) -->
-  <div class="card">
-    <h2>Тело</h2>
-    <div class="muted">Запись 1 раз в неделю. Дата округляется до понедельника.</div>
-
-    <div class="row" style="margin-top:10px">
-      <div>
-        <label>Дата</label>
-        <input id="bodyDate" type="date" />
-      </div>
-      <div>
-        <label>Вес (кг)</label>
-        <input id="bodyWeight" type="number" step="0.1" placeholder="например 60.5" />
-      </div>
-    </div>
-
-    <div style="font-weight:900;margin-top:12px">Параметры (см)</div>
-    <div class="row" style="margin-top:8px">
-      <div>
-        <label>Грудь</label>
-        <input id="bodyChest" type="number" step="0.1" placeholder="например 92" />
-      </div>
-      <div>
-        <label>Талия</label>
-        <input id="bodyWaist" type="number" step="0.1" placeholder="например 68" />
-      </div>
-    </div>
-
-    <div style="margin-top:10px">
-      <label>Бёдра</label>
-      <input id="bodyHips" type="number" step="0.1" placeholder="например 96" />
-    </div>
-
-    <div class="actions" style="margin-top:12px">
-      <button class="btn primary" id="bodySaveBtn">Сохранить</button>
-      <button class="btn secondary" id="bodyClearBtn">Очистить все записи</button>
-    </div>
-
-<div style="margin-top:12px; height:220px;">
-  <canvas id="bodyWeightChart" style="width:100%; height:100%; display:block;"></canvas>
-</div>
-
-    <div style="font-weight:900;margin-top:14px">Прогресс параметров</div>
-    <div id="bodyMeasTableWrap" class="muted" style="margin-top:10px">Пока нет данных.</div>
-  </div>
-</div>
-
-
-      <!-- SELECT -->
-      <div id="tab-select" class="tabpane" style="display:none;">
-        <div class="card">
-          <h2>Выбор тренировки</h2>
-          <div class="muted">Тапни по карточке, чтобы открыть упражнения.</div>
         </div>
 
-<div class="grid3" id="workoutList"></div>
+        <div class="ringBox">
+          <canvas class="ringCanvas" id="ringTrain" width="84" height="84"></canvas>
+          <div class="ringMeta">
+            <b>Train</b>
+            <span>Подходы / неделя</span>
+            <div class="ringPct" id="trainText">—</div>
+          </div>
+        </div>
+
+        <div class="ringBox">
+          <canvas class="ringCanvas" id="ringBody" width="84" height="84"></canvas>
+          <div class="ringMeta">
+            <b>Body</b>
+            <span>Замер / неделя</span>
+            <div class="ringPct" id="bodyText">—</div>
+          </div>
+        </div>
+
+        <div style="flex:1;min-width:240px">
+          <div class="kpi">
+            <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+              <div style="font-weight:900">Неделя</div>
+              <div class="muted" id="weekLabel">—</div>
+            </div>
+            <div class="bar"><div id="weekBar"></div></div>
+            <div class="small" id="weekSummary" style="margin-top:8px">—</div>
+          </div>
+
+          <div style="margin-top:10px">
+            <span class="pill blue" id="streakMove">Move streak: —</span>
+            <span class="pill ok" id="streakTrain">Train streak: —</span>
+            <span class="pill pink" id="streakBody">Body streak: —</span>
+          </div>
+        </div>
       </div>
 
-      <!-- WORKOUT -->
-      <div id="tab-workout" class="tabpane" style="display:none;">
-        <div class="card">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+      <div style="margin-top:14px">
+        <div style="font-weight:900;margin-bottom:6px">Бейджи</div>
+        <div id="badges" class="muted">Пока нет бейджей. Добавь тренировки/подходы/замер.</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div style="font-weight:900;margin-bottom:6px">Добавить событие (для теста)</div>
+        <div class="muted">Можно набросать “как будто тренировка была” и посмотреть, как меняются кольца/стрики/бейджи.</div>
+
+        <div class="row2" style="margin-top:10px">
+          <div>
+            <label>Дата (локальная)</label>
+            <input type="date" id="dDate" />
+          </div>
+          <div>
+            <label>Тип</label>
+            <select id="dType">
+              <option value="workout">Тренировка (Move)</option>
+              <option value="sets">Подходы (Train)</option>
+              <option value="body">Замер тела (Body)</option>
+              <option value="pr">PR по упражнению</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="workoutFields" style="margin-top:10px">
+          <label>Название тренировки</label>
+          <input id="wName" placeholder="например: Вверх" />
+        </div>
+
+        <div id="setsFields" style="margin-top:10px;display:none">
+          <div class="row2">
             <div>
-              <div class="muted">Тренировка</div>
-              <div style="font-size:18px;font-weight:900" id="wName">—</div>
-              <div class="muted">Дата: <span id="wDate"></span></div>
+              <label>Подходов (шт)</label>
+              <input id="sCount" type="number" min="1" value="12" />
             </div>
-            <button class="btn secondary" id="finishBtn" style="width:auto;padding:10px 12px">Завершить</button>
+            <div>
+              <label>Упражнений (шт)</label>
+              <input id="sEx" type="number" min="1" value="5" />
+            </div>
           </div>
         </div>
 
-        <div class="card">
-          <div style="font-weight:900;margin-bottom:10px">Упражнения</div>
-          <div id="exPills"></div>
-        </div>
-
-        <div class="card">
-<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
-  <div>
-    <div style="font-size:16px;font-weight:900" id="exTitle">—</div>
-    <div class="muted">План: <span id="exScheme">—</span></div>
-  </div>
-
-  <div style="display:flex; gap:8px; align-items:center;">
-    <button class="btn secondary" id="videoBtn" style="width:auto;padding:10px 12px">Видео</button>
-    <button class="btn secondary" id="machineBtn" style="width:auto;padding:10px 12px; display:none;">Тренажёр</button>
-  </div>
-</div>
-
-          <div class="kpi" style="margin-top:12px">
-            <div class="row">
-              <div>
-                <label>Подход №</label>
-                <input id="setNo" type="number" min="1" value="1" />
-              </div>
-              <div>
-                <label>Вес (кг)</label>
-                <input id="weight" type="number" step="0.5" value="0" />
-              </div>
-              <div>
-                <label>Повторы</label>
-                <input id="reps" type="number" min="0" value="12" />
-              </div>
+        <div id="bodyFields" style="margin-top:10px;display:none">
+          <div class="row2">
+            <div>
+              <label>Вес (кг)</label>
+              <input id="bWeight" type="number" step="0.1" placeholder="например 60.5" />
             </div>
-
-            <div class="actions" style="margin-top:10px">
-              <button class="btn primary" id="saveSet">Сохранить подход</button>
-              <div class="muted">Сохранение идёт в Firestore после «Завершить».</div>
+            <div>
+              <label>Грудь (см)</label>
+              <input id="bChest" type="number" step="0.1" placeholder="например 92" />
             </div>
           </div>
+          <div class="row2">
+            <div>
+              <label>Талия (см)</label>
+              <input id="bWaist" type="number" step="0.1" placeholder="например 68" />
+            </div>
+            <div>
+              <label>Бёдра (см)</label>
+              <input id="bHips" type="number" step="0.1" placeholder="например 96" />
+            </div>
+          </div>
+          <div class="muted" style="margin-top:8px">Запись сохраняется как “неделя (понедельник)”.</div>
+        </div>
 
-          <div style="font-weight:900;margin-top:14px">Текущие подходы</div>
-          <div id="setsTableWrap" style="margin-top:10px" class="muted">Пока нет подходов.</div>
+        <div id="prFields" style="margin-top:10px;display:none">
+          <div class="row2">
+            <div>
+              <label>Упражнение</label>
+              <input id="prName" placeholder="например: Жим гантелей" />
+            </div>
+            <div>
+              <label>Вес (кг)</label>
+              <input id="prWeight" type="number" step="0.5" placeholder="например 22.5" />
+            </div>
+          </div>
+          <div class="muted" style="margin-top:8px">PR бейдж прилетает, если вес больше прошлого PR.</div>
+        </div>
+
+        <div style="margin-top:12px" class="row2">
+          <button class="btn primary" id="addDemo">Добавить</button>
+          <button class="btn secondary" id="add3weeks">Набросать 3 недели</button>
         </div>
       </div>
 
-      <!-- HISTORY -->
-      <div id="tab-history" class="tabpane" style="display:none;">
-        <div class="card">
-          <h2>История</h2>
-          <div class="muted">Тренировки по датам. Экспорт — по месяцам.</div>
-
-          <label>Месяц для экспорта</label>
-          <select id="monthSelect"></select>
-
-          <div class="actions">
-            <button class="btn secondary" id="exportMonth">Экспорт CSV выбранного месяца</button>
-            <button class="btn secondary" id="exportAllMonths">Экспорт CSV всех месяцев</button>
-          </div>
-        </div>
-        <div id="historyList"></div>
+      <div class="card">
+        <div style="font-weight:900;margin-bottom:6px">Лог событий</div>
+        <div class="muted">Удаление поштучно (как ты хочешь для замеров/подходов).</div>
+        <div id="logWrap" style="margin-top:10px" class="muted">Пока пусто.</div>
       </div>
-
-      <!-- PROGRESS -->
-      <div id="tab-progress" class="tabpane" style="display:none;">
-        <div class="card">
-          <h2>Прогресс</h2>
-          <div class="muted">Сравнение: последняя тренировка vs предыдущая по каждому упражнению.</div>
-        </div>
-        <div class="card" id="progressTableWrap"></div>
-      </div>
-
-      <!-- ADMIN -->
-      <div id="tab-admin" class="tabpane" style="display:none;">
-        <div class="card">
-          <h2>Админ</h2>
-          <div class="muted">Редактирование программ пользователей (users/{uid}/config/program).</div>
-
-          <label>Пользователь</label>
-          <select id="adminUserSelect">
-            <option value="TJ4cLJ0pVgb0dkh2R6IDdDS8k6F2">gorilla</option>
-            <option value="8Jbaay5imHYxRfEuL7hpRVIKAhW2">miu_miu</option>
-          </select>
-
-          <div class="actions">
-            <div class="two">
-              <button class="btn secondary" id="adminLoadBtn">Загрузить</button>
-              <button class="btn secondary" id="adminCopyDefaultBtn">Скопировать дефолт</button>
-            </div>
-            <button class="btn primary" id="adminSaveBtn">Сохранить</button>
-          </div>
-
-          <label style="margin-top:12px;">Program JSON</label>
-          <textarea id="adminProgramJson" rows="16"></textarea>
-
-          <div class="alert" id="adminStatus" style="display:none;"></div>
-        </div>
-      </div>
-
     </div>
+
+    <div class="footer">Если ок — перенесём это в прод аккуратно: функции расчёта + рендер, без поломки текущего UI.</div>
   </div>
 
+<script>
+/* ---------------------------
+   Demo storage model
+   ---------------------------
+   data = {
+     workouts: [{id, dateISO, name}],
+     sets: [{id, dateISO, setsCount, exCount}],
+     bodyWeekly: { mondayISO: {weight,chest,waist,hips, updatedAt} },
+     prs: { [exerciseName]: bestWeight },
+     badges: [{id, ts, type, text, weekKey?}],
+     weeklyCloseHistory: { [weekKey]: {moveClosed, trainClosed, bodyClosed} } // for streaks
+   }
+*/
+const LS_KEY = "wt_rings_demo_v1";
 
-  <!-- Chart.js (CDN) -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+function uid(){ return Math.random().toString(16).slice(2) + Date.now().toString(16); }
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-
-  import {
-    getAuth,
-    signInWithEmailAndPassword,
-    signOut,
-    setPersistence,
-    browserLocalPersistence,
-    onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-
-  import {
-    getFirestore,
-    doc,
-    getDoc,
-    setDoc,
-    collection,
-    addDoc,
-    getDocs,
-    query,
-    orderBy,
-    deleteDoc,
-    writeBatch
-  } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-
-  // ---------------------------
-  // Firebase
-  // ---------------------------
-  const firebaseConfig = {
-    apiKey: "AIzaSyCDV7oyY707TGZpaaBbKfgZvpAJ8mZ8QdM",
-    authDomain: "workout-tracker-95212121.firebaseapp.com",
-    projectId: "workout-tracker-95212121",
-    storageBucket: "workout-tracker-95212121.firebasestorage.app",
-    messagingSenderId: "105737690348",
-    appId: "1:105737690348:web:d9938bca38e0ab4eab59c9"
+function loadData(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return freshData();
+    const d = JSON.parse(raw);
+    return { ...freshData(), ...d };
+  }catch(e){ return freshData(); }
+}
+function saveData(){
+  localStorage.setItem(LS_KEY, JSON.stringify(data));
+}
+function freshData(){
+  return {
+    workouts: [],
+    sets: [],
+    bodyWeekly: {},
+    prs: {},
+    badges: [],
+    weeklyCloseHistory: {}
   };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-
-  // ---------------------------
-  // Access
-  // ---------------------------
-  const NICK_TO_EMAIL = {
-    gorilla: "gorilla@app.local",
-    miu_miu: "girl@app.local"
-  };
-
-  const ADMIN_UID = "TJ4cLJ0pVgb0dkh2R6IDdDS8k6F2";
-  function isAdminLocal() {
-    return !!user && user.uid === ADMIN_UID;
-  }
-
-  // ---------------------------
-  // Default program
-  // ---------------------------
-  const DEFAULT_PROGRAM = {
-    "Вверх": [
-      { name: "Тяга верхнего блока / гравитрон", scheme: "4×15 | 12", video: "https://drive.google.com/" },
-      { name: "Бабочка", scheme: "4×12 | 10", video: "https://drive.google.com/" },
-      { name: "Жим гантелей сидя / стоя", scheme: "4×12", video: "https://drive.google.com/" },
-      { name: "Отжимания обратным хватом", scheme: "3×max", video: "https://drive.google.com/" },
-      { name: "Сгибание гантелей стоя", scheme: "3×12", video: "https://drive.google.com/" }
-    ],
-    "Ягодицы": [
-      { name: "Разгиб сидя в тренажёре", scheme: "3×15", video: "https://drive.google.com/" },
-      { name: "Присед в Смите", scheme: "5×12 | 10", video: "https://drive.google.com/" },
-      { name: "Ягодичный мостик (штанга)", scheme: "4×12 | 10", video: "https://drive.google.com/" },
-      { name: "Румынская тяга", scheme: "4×12 | 10", video: "https://drive.google.com/" },
-      { name: "Выпады в Смите (обычные)", scheme: "3×10 на ногу", video: "https://drive.google.com/" }
-    ],
-    "Ноги": [
-      { name: "Разгиб сидя в тренажёре", scheme: "3×15", video: "https://drive.google.com/" },
-      { name: "Присед в Смите (средняя / узкая стойка)", scheme: "5×12 | 10", video: "https://drive.google.com/" },
-      { name: "Жим ногами в платформе", scheme: "4×10", video: "https://drive.google.com/" },
-      { name: "Сгибание ног сидя", scheme: "4×12 | 10", video: "https://drive.google.com/" }
-    ]
-  };
-
-  let PROGRAM = DEFAULT_PROGRAM;
-
-  // ---------------------------
-  // State
-  // ---------------------------
-  let user = null;           // Firebase user
-  let profile = null;        // {nick}
-  let history = [];          // sessions
-  let activeTab = "dashboard";
-
-  let currentWorkout = null;
-  let currentExercise = null;
-  let session = { date: todayISO(), workout: null, items: {} }; // items[exName] = sets[]
-
-  // ---------------------------
-// Helpers
-// ---------------------------
-function el(id) { return document.getElementById(id); }
-
-function show(id, yes = true) {
-  const n = el(id);
-  if (!n) return;
-  n.style.display = yes ? "" : "none";
 }
 
-function setSub(txt) {
-  const n = el("sub");
-  if (n) n.textContent = txt;
-}
-
-// LOADING helper
-function setLoading(on, text = "Загрузка") {
-  const scr = el("screenLoading");
-  if (scr) scr.style.display = on ? "" : "none";
-
-  // текст внутри лоадера (если есть)
-  const t = scr?.querySelector?.(".loadingText");
-  if (t) t.textContent = text;
-
-  // блокируем прокрутку пока грузимся
-  document.body.style.overflow = on ? "hidden" : "";
-}
-
-function adminMsg(text, isError = false) {
-  const box = el("adminStatus");
-  if (!box) return;
-  box.style.display = "";
-  box.innerHTML = isError ? `<b>Ошибка:</b> ${text}` : text;
-}
-
-function todayISO() {
+function todayISO(){
   const d = new Date();
-  const tz = d.getTimezoneOffset() * 60000;
-  return new Date(Date.now() - tz).toISOString().slice(0, 10);
+  const tz = d.getTimezoneOffset()*60000;
+  return new Date(Date.now()-tz).toISOString().slice(0,10);
 }
-
-function fmt(iso) {
-  const [y, m, d] = iso.split("-");
+function fmtISO(iso){
+  const [y,m,d]=iso.split("-");
   return `${d}.${m}.${y}`;
 }
-
-function monthKey(iso) { return iso.slice(0, 7); } // YYYY-MM
-function monthTitle(ym) {
-  const [y, m] = ym.split("-");
-  return `${m}.${y}`;
+function mondayOf(dateISO){
+  const [y,m,d]=dateISO.split("-").map(Number);
+  const dt = new Date(y,m-1,d);
+  const day = (dt.getDay()+6)%7; // Mon=0..Sun=6
+  dt.setDate(dt.getDate()-day);
+  const tz = dt.getTimezoneOffset()*60000;
+  return new Date(dt.getTime()-tz).toISOString().slice(0,10);
+}
+function weekKey(dateISO){ return mondayOf(dateISO); } // monday ISO as week key
+function weekRange(mondayISO){
+  const [y,m,d]=mondayISO.split("-").map(Number);
+  const mon = new Date(y,m-1,d);
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  const toISO=(x)=>{
+    const tz=x.getTimezoneOffset()*60000;
+    return new Date(x.getTime()-tz).toISOString().slice(0,10);
+  };
+  return {start: toISO(mon), end: toISO(sun)};
+}
+function isInWeek(dateISO, mondayISO){
+  const {start,end}=weekRange(mondayISO);
+  return dateISO>=start && dateISO<=end;
 }
 
-function downloadText(filename, text) {
-  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+/* ---------------------------
+   Goals (tune later)
+   --------------------------- */
+const GOALS = {
+  movePerWeek: 3,
+  setsPerWeek: 40,
+  bodyPerWeek: 1
+};
+
+/* ---------------------------
+   Badges logic
+   --------------------------- */
+function addBadge(type, text, weekKeyMaybe=null){
+  const id = uid();
+  data.badges.unshift({ id, ts: Date.now(), type, text, weekKey: weekKeyMaybe });
+  // keep last 50
+  data.badges = data.badges.slice(0,50);
+}
+function ensureWeekCloseRecorded(wk, closedObj){
+  data.weeklyCloseHistory[wk] = closedObj;
+}
+function computeStreak(getClosed){
+  // streak ending at current week, going backwards while condition true
+  const currWk = weekKey(todayISO());
+  let streak = 0;
+  let wk = currWk;
+
+  for(let i=0;i<260;i++){ // 5 years max
+    const hist = data.weeklyCloseHistory[wk];
+    if(!hist) break;
+    if(!getClosed(hist)) break;
+    streak++;
+    // previous week:
+    const [y,m,d]=wk.split("-").map(Number);
+    const dt=new Date(y,m-1,d);
+    dt.setDate(dt.getDate()-7);
+    const tz=dt.getTimezoneOffset()*60000;
+    wk = new Date(dt.getTime()-tz).toISOString().slice(0,10);
+  }
+  return streak;
 }
 
-function csvEscape(v) {
-  const s = String(v ?? "");
-  return `"${s.replaceAll('"', '""')}"`;
+/* ---------------------------
+   Rings compute
+   --------------------------- */
+function computeWeekStats(mondayISO){
+  const workouts = data.workouts.filter(w => isInWeek(w.dateISO, mondayISO));
+  const setsRows = data.sets.filter(s => isInWeek(s.dateISO, mondayISO));
+  const body = data.bodyWeekly[mondayISO] ? 1 : 0;
+
+  const workoutCount = workouts.length;
+  const setsCount = setsRows.reduce((a,b)=>a + Number(b.setsCount||0), 0);
+
+  const movePct = workoutCount / GOALS.movePerWeek;
+  const trainPct = setsCount / GOALS.setsPerWeek;
+  const bodyPct = body / GOALS.bodyPerWeek;
+
+  const moveClosed = workoutCount >= GOALS.movePerWeek;
+  const trainClosed = setsCount >= GOALS.setsPerWeek;
+  const bodyClosed = body >= GOALS.bodyPerWeek;
+
+  return {
+    mondayISO,
+    workoutCount,
+    setsCount,
+    bodyDone: body===1,
+    movePct, trainPct, bodyPct,
+    moveClosed, trainClosed, bodyClosed
+  };
 }
 
-function toNumOrNull(v) {
-  if (v === "" || v === null || v === undefined) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+function updateWeekCloseAndBadges(stats){
+  const wk = stats.mondayISO;
+  const prev = data.weeklyCloseHistory[wk] || {moveClosed:false, trainClosed:false, bodyClosed:false, all3:false};
+
+  const now = {
+    moveClosed: stats.moveClosed,
+    trainClosed: stats.trainClosed,
+    bodyClosed: stats.bodyClosed,
+    all3: (stats.moveClosed && stats.trainClosed && stats.bodyClosed)
+  };
+
+  // New closures -> badges (only once per week)
+  if(!prev.moveClosed && now.moveClosed) addBadge("close", `Move закрыто (${stats.workoutCount}/${GOALS.movePerWeek})`, wk);
+  if(!prev.trainClosed && now.trainClosed) addBadge("close", `Train закрыто (${stats.setsCount}/${GOALS.setsPerWeek} подходов)`, wk);
+  if(!prev.bodyClosed && now.bodyClosed) addBadge("close", `Body закрыто (замер на неделю ${fmtISO(wk)})`, wk);
+
+  if(!prev.all3 && now.all3) addBadge("all3", `3/3 кольца закрыто за неделю ${fmtISO(wk)}`, wk);
+
+  ensureWeekCloseRecorded(wk, now);
+
+  // milestone streak badge (optional): when all3 streak hits 4 or 8 etc.
+  const all3Streak = computeStreak(h => h.all3);
+  if(all3Streak === 4) addBadge("streak", `Стрик 3/3: 4 недели подряд`, wk);
+  if(all3Streak === 8) addBadge("streak", `Стрик 3/3: 8 недель подряд`, wk);
 }
 
-  // ---------------------------
-  // Body weekly (Firestore): users/{uid}/bodyWeekly/{mondayISO}
-  // ---------------------------
-  let bodyWeeklyMap = {}; // { mondayISO: { weight, chest, waist, hips, updatedAt } }
+/* ---------------------------
+   Ring drawing (canvas)
+   --------------------------- */
+function drawRing(canvas, pctRaw, color, label){
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
 
-  // monday of this week (local)
-  function weekMondayISO(dateISO) {
-    const [y, m, d] = dateISO.split("-").map(Number);
-    const dt = new Date(y, m - 1, d);
-    const day = (dt.getDay() + 6) % 7; // Mon=0..Sun=6
-    dt.setDate(dt.getDate() - day);
-    const tz = dt.getTimezoneOffset() * 60000;
-    return new Date(dt.getTime() - tz).toISOString().slice(0, 10);
+  // background track
+  const cx=w/2, cy=h/2;
+  const r=32;
+  ctx.lineWidth = 10;
+  ctx.lineCap = "round";
+
+  // track
+  ctx.strokeStyle = "rgba(255,255,255,.10)";
+  ctx.beginPath();
+  ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.stroke();
+
+  // progress (allow >100% but cap at 200% visually by drawing 2 laps)
+  const pct = Math.max(0, pctRaw);
+  const laps = Math.min(2, pct); // show up to 200% as 2 laps
+  const frac = laps % 1;
+  const fullLaps = Math.floor(laps);
+
+  const start = -Math.PI/2;
+
+  ctx.strokeStyle = color;
+
+  // draw full laps (as same circle, thicker highlight)
+  for(let i=0;i<fullLaps;i++){
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,start,start + Math.PI*2);
+    ctx.stroke();
   }
 
-  function fmtISO(iso) {
-    const [y, m, d] = iso.split("-");
-    return `${d}.${m}.${y}`;
+  // draw remainder lap
+  if(frac > 0){
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,start,start + Math.PI*2*frac);
+    ctx.stroke();
   }
 
-  function numTxt(v) {
-    if (v === null || v === undefined) return "—";
-    const s = Number(v).toFixed(1);
-    return s.replace(/\.0$/, "");
-  }
+  // center text
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "rgba(255,255,255,.9)";
+  ctx.font = "900 12px system-ui,-apple-system,Segoe UI,Roboto,Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const pctTxt = Math.round(Math.min(999, pctRaw*100));
+  ctx.fillText(`${pctTxt}%`, cx, cy);
 
-  function deltaCell(curr, prev) {
-    if (curr === null || curr === undefined) return `<span class="delta eq">—</span>`;
-    if (prev === null || prev === undefined) return `<span class="delta eq">—</span>`;
-    const d = Number(curr) - Number(prev);
-    if (!Number.isFinite(d) || d === 0) return `<span class="delta eq">0</span>`;
-    const abs = Math.abs(d).toFixed(1).replace(/\.0$/, "");
-    if (d < 0) return `<span class="delta down">-${abs}</span>`;
-    return `<span class="delta up">+${abs}</span>`;
-  }
-
-  async function loadBodyWeekly() {
-    if (!user) return;
-    bodyWeeklyMap = {};
-    const snap = await getDocs(collection(db, "users", user.uid, "bodyWeekly"));
-    snap.forEach(d => {
-      bodyWeeklyMap[d.id] = d.data() || {};
-    });
-  }
-
-  async function upsertBodyWeekly(dateISO, payload) {
-    if (!user) return;
-    const monday = weekMondayISO(dateISO);
-
-    // не затираем null-ами
-    const cleaned = {};
-    for (const [k, v] of Object.entries(payload)) {
-      if (typeof v === "number") cleaned[k] = v;
-    }
-
-    if (!Object.keys(cleaned).length) {
-      alert("Заполни вес и/или параметры.");
-      return;
-    }
-
-    const prev = bodyWeeklyMap[monday] || {};
-    const next = { ...prev, ...cleaned, updatedAt: Date.now() };
-
-    await setDoc(doc(db, "users", user.uid, "bodyWeekly", monday), next, { merge: true });
-    bodyWeeklyMap[monday] = next;
-  }
-
-  async function clearBodyWeeklyAll() {
-    if (!user) return;
-
-    const ok = confirm("Очистить все записи веса и параметров?");
-    if (!ok) return;
-
-    const col = collection(db, "users", user.uid, "bodyWeekly");
-    const snap = await getDocs(col);
-
-    const batch = writeBatch(db);
-    snap.forEach(d => {
-      batch.delete(doc(db, "users", user.uid, "bodyWeekly", d.id));
-    });
-    await batch.commit();
-
-    bodyWeeklyMap = {};
-  }
-
-  // ---------------------------
-  // Body weekly UI (guarded)
-  // ---------------------------
-  let bodyChart = null;
-  let bodyUIInited = false;
-
-  function renderBodyWeightChart() {
-    const keys = Object.keys(bodyWeeklyMap).sort(); // monday ISO asc
-    const labels = keys.map(k => fmtISO(k));
-    const data = keys.map(k => {
-      const w = bodyWeeklyMap[k]?.weight;
-      return (typeof w === "number") ? w : null;
-    });
-
-    const canvas = el("bodyWeightChart");
-    if (!canvas) return;
-
-    const ChartRef = window.Chart;
-    if (!ChartRef) return;
-
-    const ctx = canvas.getContext("2d");
-    if (bodyChart) bodyChart.destroy();
-
-    bodyChart = new ChartRef(ctx, {
-      type: "line",
-      data: {
-        labels,
-datasets: [{
-  label: "Вес (кг)",
-  data,
-  tension: 0.25,
-  pointRadius: 4,
-  pointHoverRadius: 6,
-  spanGaps: true,
-
-  borderColor: themeLineColor(),
-  pointBackgroundColor: themeLineColor(),
-  pointBorderColor: themeLineColor()
-}]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { labels: { color: "#ffffff" } },
-          tooltip: { enabled: true }
-        },
-        scales: {
-          x: { ticks: { color: "rgba(255,255,255,.70)" }, grid: { color: "rgba(255,255,255,.08)" } },
-          y: { ticks: { color: "rgba(255,255,255,.70)" }, grid: { color: "rgba(255,255,255,.08)" } }
-        }
-      }
-    });
-  }
-
-function themeLineColor() {
-  const isPink = document.documentElement.getAttribute("data-theme") === "pink";
-
-  // black theme → синий
-  if (!isPink) return "#4da3ff"; // приятный синий, не кислотный
-
-  // pink theme → текущий акцент
-  const root = document.documentElement;
-  const c = getComputedStyle(root).getPropertyValue("--btn").trim();
-  return c || "#dd77af";
+  // small label
+  ctx.fillStyle = "rgba(255,255,255,.55)";
+  ctx.font = "800 10px system-ui,-apple-system,Segoe UI,Roboto,Arial";
+  ctx.fillText(label, cx, cy+18);
 }
 
-  function renderBodyMeasTable() {
-    const wrap = el("bodyMeasTableWrap");
-    if (!wrap) return;
+/* ---------------------------
+   Render UI
+   --------------------------- */
+const $ = (id)=>document.getElementById(id);
 
-    const keys = Object.keys(bodyWeeklyMap).sort(); // asc
-    if (!keys.length) {
-      wrap.className = "muted";
-      wrap.textContent = "Пока нет данных.";
-      return;
-    }
+let data = loadData();
 
-    // deltas по времени (asc)
-    const deltaByKey = {};
-    for (let i = 0; i < keys.length; i++) {
-      const k = keys[i];
-      const curr = bodyWeeklyMap[k] || {};
-      const prev = bodyWeeklyMap[keys[i - 1]] || {};
-      deltaByKey[k] = {
-        chest: deltaCell(curr.chest, prev.chest),
-        waist: deltaCell(curr.waist, prev.waist),
-        hips: deltaCell(curr.hips, prev.hips)
-      };
-    }
+function render(){
+  // current week
+  const currWk = weekKey(todayISO());
+  const stats = computeWeekStats(currWk);
 
-    wrap.className = "";
-    wrap.innerHTML = `
-      <div class="tableScroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Неделя (пн)</th>
-              <th>Грудь</th><th>Δ</th>
-              <th>Талия</th><th>Δ</th>
-              <th>Бёдра</th><th>Δ</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${keys.slice().reverse().map(k => {
-              const v = bodyWeeklyMap[k] || {};
-              const d = deltaByKey[k] || {};
-              return `
-                <tr>
-                  <td><b>${fmtISO(k)}</b></td>
-                  <td>${numTxt(v.chest)}</td><td>${d.chest || "—"}</td>
-                  <td>${numTxt(v.waist)}</td><td>${d.waist || "—"}</td>
-                  <td>${numTxt(v.hips)}</td><td>${d.hips || "—"}</td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
+  // update closures + badges/streaks
+  updateWeekCloseAndBadges(stats);
+
+  saveData();
+
+  // rings
+  drawRing($("ringMove"), stats.movePct, getCSS("--ringMove"), "Move");
+  drawRing($("ringTrain"), stats.trainPct, getCSS("--ringTrain"), "Train");
+  drawRing($("ringBody"), stats.bodyPct, getCSS("--ringBody"), "Body");
+
+  $("moveText").textContent = `${stats.workoutCount}/${GOALS.movePerWeek} тренировки`;
+  $("trainText").textContent = `${stats.setsCount}/${GOALS.setsPerWeek} подходов`;
+  $("bodyText").textContent = stats.bodyDone ? `1/${GOALS.bodyPerWeek} замер` : `0/${GOALS.bodyPerWeek} замер`;
+
+  // week summary bar = how many rings closed (0..3)
+  const closed = [stats.moveClosed, stats.trainClosed, stats.bodyClosed].filter(Boolean).length;
+  $("weekLabel").textContent = `Неделя (пн): ${fmtISO(currWk)}`;
+  $("weekSummary").textContent = `${closed}/3 кольца закрыто • Move ${stats.workoutCount}, Train ${stats.setsCount}, Body ${stats.bodyDone ? "да" : "нет"}`;
+  $("weekBar").style.width = Math.round((closed/3)*100) + "%";
+
+  // streaks
+  const moveStreak = computeStreak(h => h.moveClosed);
+  const trainStreak = computeStreak(h => h.trainClosed);
+  const bodyStreak = computeStreak(h => h.bodyClosed);
+  $("streakMove").textContent = `Move streak: ${moveStreak} нед.`;
+  $("streakTrain").textContent = `Train streak: ${trainStreak} нед.`;
+  $("streakBody").textContent = `Body streak: ${bodyStreak} нед.`;
+
+  // badges
+  const bWrap = $("badges");
+  if(!data.badges.length){
+    bWrap.className = "muted";
+    bWrap.textContent = "Пока нет бейджей. Добавь тренировки/подходы/замер.";
+  }else{
+    bWrap.className = "";
+    bWrap.innerHTML = data.badges.slice(0,10).map(b=>{
+      const when = new Date(b.ts);
+      const hh = String(when.getHours()).padStart(2,"0");
+      const mm = String(when.getMinutes()).padStart(2,"0");
+      const tag = b.type === "all3" ? "ok" : (b.type==="streak" ? "blue" : "pink");
+      return `<span class="pill ${tag}" title="${when.toLocaleString()}">${hh}:${mm} • ${escapeHtml(b.text)}</span>`;
+    }).join("");
   }
 
-  function initBodyUI() {
-    // железная защита: обработчики навешиваются 1 раз за жизнь страницы
-    if (bodyUIInited) return;
-    bodyUIInited = true;
+  // log
+  renderLog();
+}
 
-    if (el("bodyDate")) el("bodyDate").value = todayISO();
+function renderLog(){
+  const wrap = $("logWrap");
 
-    el("bodySaveBtn")?.addEventListener("click", async () => {
-      const dateISO = el("bodyDate")?.value || todayISO();
+  const items = [];
 
-      const payload = {
-        weight: toNumOrNull(el("bodyWeight")?.value),
-        chest: toNumOrNull(el("bodyChest")?.value),
-        waist: toNumOrNull(el("bodyWaist")?.value),
-        hips: toNumOrNull(el("bodyHips")?.value)
-      };
-
-      await upsertBodyWeekly(dateISO, payload);
-
-      if (el("bodyWeight")) el("bodyWeight").value = "";
-      if (el("bodyChest")) el("bodyChest").value = "";
-      if (el("bodyWaist")) el("bodyWaist").value = "";
-      if (el("bodyHips")) el("bodyHips").value = "";
-
-      renderBodyWeightChart();
-      renderBodyMeasTable();
-    });
-
-    el("bodyClearBtn")?.addEventListener("click", async () => {
-      await clearBodyWeeklyAll();
-      renderBodyWeightChart();
-      renderBodyMeasTable();
-    });
+  // workouts
+  for(const w of data.workouts){
+    items.push({ kind:"workout", id:w.id, dateISO:w.dateISO, text:`Тренировка: ${w.name}` });
+  }
+  // sets
+  for(const s of data.sets){
+    items.push({ kind:"sets", id:s.id, dateISO:s.dateISO, text:`Подходы: ${s.setsCount} (упр: ${s.exCount||0})` });
+  }
+  // body weekly -> as pseudo events
+  for(const [mon, v] of Object.entries(data.bodyWeekly)){
+    const parts = [];
+    if(typeof v.weight==="number") parts.push(`вес ${v.weight}`);
+    if(typeof v.chest==="number") parts.push(`грудь ${v.chest}`);
+    if(typeof v.waist==="number") parts.push(`талия ${v.waist}`);
+    if(typeof v.hips==="number") parts.push(`бёдра ${v.hips}`);
+    items.push({ kind:"body", id:mon, dateISO:mon, text:`Замер (неделя): ${parts.join(", ") || "—"}` });
+  }
+  // PRs (as info)
+  for(const [name, w] of Object.entries(data.prs)){
+    items.push({ kind:"pr", id:name, dateISO:"9999-12-31", text:`PR: ${name} = ${w} кг` });
   }
 
-  // ---------------------------
-  // Draft workout (persist unfinished session)
-  // ---------------------------
-  function draftKey() {
-    return user ? `wt_draft_${user.uid}` : "wt_draft_anon";
+  items.sort((a,b)=> (b.dateISO.localeCompare(a.dateISO)) || (a.kind.localeCompare(b.kind)));
+
+  if(!items.length){
+    wrap.className="muted";
+    wrap.textContent="Пока пусто.";
+    return;
   }
 
-  function saveDraft() {
-    if (!user) return;
-    if (!session || !session.workout) return;
-
-    const payload = {
-      v: 1,
-      savedAt: Date.now(),
-      session,
-      currentWorkout,
-      currentExercise
-    };
-
-    try {
-      localStorage.setItem(draftKey(), JSON.stringify(payload));
-    } catch (e) {
-      console.warn("Draft save failed", e);
-    }
-
-    updateGoStartButton();
-  }
-
-  function loadDraft() {
-    if (!user) return null;
-    try {
-      const raw = localStorage.getItem(draftKey());
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!parsed?.session?.workout) return null;
-      return parsed;
-    } catch (e) {
-      console.warn("Draft load failed", e);
-      return null;
-    }
-  }
-
-  function clearDraft() {
-    if (!user) return;
-    try { localStorage.removeItem(draftKey()); } catch (e) { }
-    updateGoStartButton();
-  }
-
-  function hasDraft() {
-    const d = loadDraft();
-    return !!(d && d.session && d.session.workout);
-  }
-
-  function updateGoStartButton() {
-    const btn = el("goStart");
-    if (!btn) return;
-    btn.textContent = hasDraft() ? "Продолжить тренировку" : "Начать тренировку";
-  }
-
-  function resumeFromDraft(draft) {
-    if (!draft?.session?.workout) return;
-
-    session = draft.session;
-    currentWorkout = draft.currentWorkout || session.workout;
-    currentExercise = draft.currentExercise || null;
-
-    el("wName").textContent = session.workout;
-    el("wDate").textContent = fmt(session.date);
-
-    const pills = el("exPills");
-    pills.innerHTML = "";
-
-    const list = PROGRAM[session.workout] || [];
-    list.forEach((ex) => {
-      const b = document.createElement("button");
-      b.className = "pill";
-      b.textContent = ex.name;
-      b.addEventListener("click", () => selectExercise(ex.name));
-      pills.appendChild(b);
-    });
-
-    if (!currentExercise || !list.some(x => x.name === currentExercise)) {
-      currentExercise = list[0]?.name || null;
-    }
-
-    document.querySelectorAll("#exPills .pill").forEach(p => {
-      p.classList.toggle("active", p.textContent === currentExercise);
-    });
-
-    renderExercise(true);
-    setActiveTabUI("workout");
-    updateGoStartButton();
-  }
-
-  window.addEventListener("beforeunload", () => {
-    if (user && session?.workout) saveDraft();
-  });
-
-  // ---------------------------
-  // Theme
-  // ---------------------------
-  const savedTheme = localStorage.getItem("wt_theme");
-  if (savedTheme === "pink") document.documentElement.setAttribute("data-theme", "pink");
-
-  el("themeToggle")?.addEventListener("click", () => {
-    const isPink = document.documentElement.getAttribute("data-theme") === "pink";
-    if (isPink) {
-      document.documentElement.removeAttribute("data-theme");
-      localStorage.setItem("wt_theme", "black");
-    } else {
-      document.documentElement.setAttribute("data-theme", "pink");
-      localStorage.setItem("wt_theme", "pink");
-    }
-      renderBodyWeightChart(); // обновить цвет линии
-
-  });
-
-  // ---------------------------
-  // Firestore: program
-  // ---------------------------
-  async function loadProgramDoc(uid) {
-    const ref = doc(db, "users", uid, "config", "program");
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return null;
-    const data = snap.data();
-    return data?.program || null;
-  }
-
-  async function saveProgramDoc(uid, programObj) {
-    const ref = doc(db, "users", uid, "config", "program");
-    await setDoc(ref, {
-      program: programObj,
-      updatedAt: Date.now(),
-      updatedBy: user.uid
-    }); // без merge
-  }
-
-  function validateProgramShape(p) {
-    if (!p || typeof p !== "object" || Array.isArray(p)) return "Program должен быть объектом";
-
-    const keys = Object.keys(p);
-    if (!keys.length) return "Program пустой";
-
-    for (const wName of keys) {
-      if (!Array.isArray(p[wName])) return `Тренировка "${wName}" должна быть массивом упражнений`;
-
-      for (const ex of p[wName]) {
-        if (!ex || typeof ex !== "object") return `В "${wName}" есть не-объект`;
-        if (!ex.name || !ex.scheme) return `В "${wName}" у упражнения нет name/scheme`;
-        if (!ex.video) ex.video = "https://drive.google.com/";
-        if (!ex.machine) ex.machine = "";
-      }
-    }
-    return null;
-  }
-
-  // ---------------------------
-  // Tabs
-  // ---------------------------
-  const TABS = ["dashboard", "select", "workout", "history", "progress", "admin"];
-
-  function setActiveTabUI(tab) {
-    activeTab = tab;
-
-    document.querySelectorAll(".tab").forEach(t => {
-      t.classList.toggle("active", t.dataset.tab === tab);
-    });
-
-    TABS.forEach(k => {
-      const pane = el("tab-" + k);
-      if (pane) pane.style.display = (k === tab) ? "" : "none";
-    });
-
-    // если вес/параметры размещены на дашборде — перерисуем при заходе
-    if (tab === "dashboard") {
-      renderBodyWeightChart();
-      renderBodyMeasTable();
-    }
-  }
-
-  document.querySelectorAll(".tab").forEach(t => {
-    t.addEventListener("click", () => {
-      const tab = t.dataset.tab;
-
-      if (tab === "admin") {
-        if (!isAdminLocal()) return;
-        setActiveTabUI("admin");
-        return;
-      }
-
-      if (tab === "history") { setActiveTabUI("history"); renderHistory(); return; }
-      if (tab === "progress") { setActiveTabUI("progress"); renderProgress(); return; }
-      if (tab === "select") { setActiveTabUI("select"); renderWorkoutSelect(); return; }
-      if (tab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); return; }
-      if (tab === "workout") { setActiveTabUI("workout"); return; }
-    });
-  });
-
-  el("goStart")?.addEventListener("click", () => {
-    const d = loadDraft();
-    if (d) {
-      resumeFromDraft(d);
-      return;
-    }
-    setActiveTabUI("select");
-    renderWorkoutSelect();
-  });
-
-  el("goHistory")?.addEventListener("click", () => { setActiveTabUI("history"); renderHistory(); });
-  el("goProgress")?.addEventListener("click", () => { setActiveTabUI("progress"); renderProgress(); });
-
-  // ---------------------------
-  // Load sessions
-  // ---------------------------
-  async function loadHistory() {
-    if (!user) return;
-    const qy = query(collection(db, "users", user.uid, "sessions"), orderBy("date", "desc"));
-    const snap = await getDocs(qy);
-    history = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  }
-
-  async function deleteSessionById(sessionId) {
-    if (!user) return;
-
-    const ok = confirm("Удалить эту тренировку? Действие нельзя отменить.");
-    if (!ok) return;
-
-    try {
-      await deleteDoc(doc(db, "users", user.uid, "sessions", sessionId));
-
-      await loadHistory();
-      await loadBodyWeekly();
-
-      renderWorkoutSelect();
-      renderDashboard();
-      renderHistory();
-      renderProgress();
-
-      // ВАЖНО: initBodyUI НЕ вызываем тут (иначе будут дубли обработчиков)
-      renderBodyWeightChart();
-      renderBodyMeasTable();
-    } catch (e) {
-      console.error(e);
-      alert("Не удалось удалить тренировку. Проверь доступ/Rules.");
-    }
-  }
-
-  // ---------------------------
-  // Workout selection
-  // ---------------------------
-  function workoutSubtitle(name) {
-    const map = {
-      "Спина / Бицепсы": "Спина / бицепсы / плечи",
-      "Грудь / Трицепсы": "Грудь / трицепсы / плечи",
-      "Ноги": "Ноги",
-      "Вверх": "Спина / грудь / плечи / руки",
-      "Ягодицы": "Акцент на ягодицы"
-    };
-    return map[name] || "Тренировка";
-  }
-
-  function renderWorkoutSelect() {
-    const wrap = el("workoutList");
-    if (!wrap) return;
-
-    const names = Object.keys(PROGRAM || {}).filter(Boolean);
-
-    if (!names.length) {
-      wrap.innerHTML = `
-        <div class="card">
-          <div class="muted">Нет тренировок в программе. Добавь через Админ → Program JSON.</div>
-        </div>
-      `;
-      return;
-    }
-
-    wrap.innerHTML = names.map(name => `
-      <div class="workoutCard" data-workout="${name}">
-        <div class="workoutHead">
-          <div class="workoutMeta">
-            <h3>${name}</h3>
-            <div class="muted">${workoutSubtitle(name)}</div>
-          </div>
-          <button class="workoutDel" type="button" title="Удалить тренировку" data-del="${name}">✕</button>
-        </div>
-      </div>
-    `).join("");
-
-    wrap.querySelectorAll(".workoutCard").forEach(card => {
-      card.addEventListener("click", (e) => {
-        if (e.target && e.target.closest(".workoutDel")) return;
-        startWorkout(card.dataset.workout);
-      });
-    });
-
-    wrap.querySelectorAll(".workoutDel").forEach(btn => {
-      btn.addEventListener("click", async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const name = btn.dataset.del;
-        await deleteWorkoutFromProgram(name);
-      });
-    });
-  }
-
-  async function deleteWorkoutFromProgram(workoutName) {
-    if (!user) return;
-
-    const ok = confirm(`Удалить тренировку "${workoutName}" из программы?`);
-    if (!ok) return;
-
-    try {
-      const next = { ...(PROGRAM || {}) };
-      delete next[workoutName];
-
-      PROGRAM = next;
-
-      await saveProgramDoc(user.uid, PROGRAM);
-
-      renderWorkoutSelect();
-
-      if (currentWorkout === workoutName) {
-        currentWorkout = null;
-        currentExercise = null;
-        session = { date: todayISO(), workout: null, items: {} };
-        clearDraft();
-        setActiveTabUI("select");
-        renderWorkoutSelect();
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Не удалось удалить тренировку. Проверь Rules/доступ.");
-    }
-  }
-
-  function startWorkout(w) {
-    currentWorkout = w;
-    session = { date: todayISO(), workout: w, items: {} };
-
-    el("wName").textContent = w;
-    el("wDate").textContent = fmt(session.date);
-
-    const pills = el("exPills");
-    pills.innerHTML = "";
-
-    const list = PROGRAM[w] || [];
-    list.forEach((ex, i) => {
-      const b = document.createElement("button");
-      b.className = "pill" + (i === 0 ? " active" : "");
-      b.textContent = ex.name;
-      b.addEventListener("click", () => selectExercise(ex.name));
-      pills.appendChild(b);
-    });
-
-    currentExercise = list[0]?.name || null;
-    renderExercise(true);
-    setActiveTabUI("workout");
-
-    saveDraft();
-  }
-
-  function selectExercise(name) {
-    currentExercise = name;
-    document.querySelectorAll("#exPills .pill").forEach(p => {
-      p.classList.toggle("active", p.textContent === name);
-    });
-    renderExercise(true);
-    saveDraft();
-  }
-
-  function getExObj() {
-    const arr = PROGRAM[currentWorkout] || [];
-    return arr.find(x => x.name === currentExercise);
-  }
-
-  function isValidVideoUrl(url) {
-    if (!url) return false;
-    const u = String(url).trim();
-    if (!u || u === "-") return false;
-    return /^https?:\/\//i.test(u);
-  }
-
-  function renderExercise(resetSetNo = false) {
-    const ex = getExObj();
-    if (!ex) {
-      el("exTitle").textContent = "Нет упражнений";
-      el("exScheme").textContent = "—";
-      el("setsTableWrap").innerHTML = "—";
-      return;
-    }
-
-    const vBtn = el("videoBtn");
-    if (vBtn) vBtn.style.display = isValidVideoUrl(ex.video) ? "" : "none";
-
-    el("exTitle").textContent = ex.name;
-    el("exScheme").textContent = ex.scheme;
-
-    const mBtn = el("machineBtn");
-    if (mBtn) {
-      const has = !!(ex.machine && String(ex.machine).trim());
-      mBtn.style.display = has ? "" : "none";
-    }
-
-    if (resetSetNo) {
-      const sets = session.items[ex.name] || [];
-      const next = sets.length ? (Math.max(...sets.map(s => Number(s.setNo || 0))) + 1) : 1;
-      el("setNo").value = next;
-    }
-
-    renderSetsTable();
-  }
-
-  // ---------------------------
-  // Video modal
-  // ---------------------------
-  function openVideoModal(url) {
-    const modal = el("videoModal");
-    const vid = el("videoPlayer");
-    const err = el("videoErr");
-    if (!modal || !vid || !err) return;
-
-    err.style.display = "none";
-    vid.pause();
-    vid.removeAttribute("src");
-    vid.load();
-
-    vid.src = url;
-    vid.onloadeddata = () => { err.style.display = "none"; };
-    vid.onerror = () => { err.style.display = ""; };
-
-    modal.style.display = "";
-  }
-
-  function closeVideoModal() {
-    const modal = el("videoModal");
-    const vid = el("videoPlayer");
-    if (!modal || !vid) return;
-
-    modal.style.display = "none";
-    vid.pause();
-    vid.removeAttribute("src");
-    vid.load();
-  }
-
-  el("videoBtn")?.addEventListener("click", () => {
-    const ex = getExObj();
-    const url = ex?.video ? String(ex.video).trim() : "";
-    if (!isValidVideoUrl(url)) return;
-    openVideoModal(url);
-  });
-  el("videoClose")?.addEventListener("click", closeVideoModal);
-  el("videoBackdrop")?.addEventListener("click", closeVideoModal);
-
-  // ---------------------------
-  // Machine modal
-  // ---------------------------
-  function openMachineModal(url) {
-    const modal = el("machineModal");
-    const img = el("machineImg");
-    const err = el("machineErr");
-    if (!modal || !img || !err) return;
-
-    err.style.display = "none";
-    img.onload = () => { err.style.display = "none"; };
-    img.onerror = () => { err.style.display = ""; };
-
-    img.src = url;
-    modal.style.display = "";
-  }
-
-  function closeMachineModal() {
-    const modal = el("machineModal");
-    const img = el("machineImg");
-    if (!modal || !img) return;
-
-    modal.style.display = "none";
-    img.src = "";
-  }
-
-  el("machineBtn")?.addEventListener("click", () => {
-    const ex = getExObj();
-    const url = ex?.machine ? String(ex.machine).trim() : "";
-    if (!url) return;
-    openMachineModal(url);
-  });
-  el("machineClose")?.addEventListener("click", closeMachineModal);
-  el("machineBackdrop")?.addEventListener("click", closeMachineModal);
-
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      closeVideoModal();
-      closeMachineModal();
-    }
-  });
-
-  // ---------------------------
-  // Sets: add/edit/delete (как в демо)
-  // ---------------------------
-  el("saveSet")?.addEventListener("click", () => {
-    const ex = getExObj();
-    if (!ex) return;
-
-    const setNo = Number(el("setNo").value || 1);
-    const weight = Number(el("weight").value || 0);
-    const reps = Number(el("reps").value || 0);
-
-    if (!session.items[ex.name]) session.items[ex.name] = [];
-    session.items[ex.name].push({ setNo, weight, reps });
-
-    el("setNo").value = setNo + 1;
-
-    renderSetsTable();
-    saveDraft();
-  });
-
-  function renderSetsTable() {
-    const ex = getExObj();
-    const wrap = el("setsTableWrap");
-    if (!wrap) return;
-
-    if (!ex) {
-      wrap.innerHTML = `<div class="muted">—</div>`;
-      return;
-    }
-
-    const sets = session.items[ex.name] || [];
-
-    if (!sets.length) {
-      wrap.className = "muted";
-      wrap.innerHTML = "Пока нет подходов.";
-      return;
-    }
-
-    wrap.className = "";
-    wrap.innerHTML = `
+  wrap.className="";
+  wrap.innerHTML = `
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <table>
         <thead>
           <tr>
-            <th>№</th><th>Вес</th><th>Повт.</th><th>Действия</th>
+            <th style="width:120px">Дата</th>
+            <th>Событие</th>
+            <th class="actionsCell" style="width:160px">Действия</th>
           </tr>
         </thead>
         <tbody>
-          ${sets.map((s, idx) => `
-            <tr data-idx="${idx}">
-              <td>${s.setNo}</td>
-              <td>${s.weight} кг</td>
-              <td>${s.reps}</td>
-              <td>
-                <button class="btn secondary" data-act="edit" style="width:auto;padding:8px 10px;border-radius:12px;font-size:12px">Ред.</button>
-                <button class="btn secondary" data-act="del" style="width:auto;padding:8px 10px;border-radius:12px;font-size:12px;border-color:rgba(255,107,107,.45);color:var(--danger)">Удалить</button>
-              </td>
-            </tr>
-          `).join("")}
+          ${items.slice(0,30).map(it=>{
+            const dateTxt = it.kind==="pr" ? "—" : fmtISO(it.dateISO);
+            const delLabel = (it.kind==="body") ? "Удалить запись" : "Удалить";
+            const canDel = it.kind !== "pr";
+            const prBtn = it.kind==="sets" ? `<button class="miniBtn pr" data-act="bonus" data-kind="sets" data-id="${it.id}">+10 подходов</button>` : "";
+            return `
+              <tr>
+                <td>${dateTxt}</td>
+                <td>${escapeHtml(it.text)}</td>
+                <td class="actionsCell">
+                  ${prBtn}
+                  ${canDel ? `<button class="miniBtn del" data-act="del" data-kind="${it.kind}" data-id="${it.id}">${delLabel}</button>` : ""}
+                </td>
+              </tr>
+            `;
+          }).join("")}
         </tbody>
       </table>
-    `;
+    </div>
+  `;
 
-    wrap.querySelectorAll("button").forEach(btn => {
-      const tr = btn.closest("tr");
-      const idx = Number(tr.dataset.idx);
+  wrap.querySelectorAll("button").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
       const act = btn.dataset.act;
+      const kind = btn.dataset.kind;
+      const id = btn.dataset.id;
 
-      btn.addEventListener("click", () => {
-        const ex = getExObj();
-        if (!ex) return;
+      if(act==="bonus" && kind==="sets"){
+        const row = data.sets.find(x=>x.id===id);
+        if(row){ row.setsCount = Number(row.setsCount||0) + 10; saveData(); render(); }
+        return;
+      }
 
-        const sets = session.items[ex.name] || [];
-        const src = sets[idx];
-        if (!src) return;
-
-        if (act === "del") {
-          sets.splice(idx, 1);
-          session.items[ex.name] = sets;
-          renderSetsTable();
-
-          const next = sets.length ? (Math.max(...sets.map(s => Number(s.setNo || 0))) + 1) : 1;
-          el("setNo").value = next;
-
-          saveDraft();
-          return;
+      if(act==="del"){
+        if(kind==="workout"){
+          const ok = confirm("Удалить эту тренировку?");
+          if(!ok) return;
+          data.workouts = data.workouts.filter(x=>x.id!==id);
         }
-
-        if (act === "edit") {
-          el("setNo").value = src.setNo;
-          el("weight").value = src.weight;
-          el("reps").value = src.reps;
-
-          sets.splice(idx, 1);
-          session.items[ex.name] = sets;
-          renderSetsTable();
-
-          saveDraft();
-          return;
+        if(kind==="sets"){
+          const ok = confirm("Удалить эту запись подходов?");
+          if(!ok) return;
+          data.sets = data.sets.filter(x=>x.id!==id);
         }
-      });
-    });
-  }
-
-  // ---------------------------
-  // Finish workout -> save to Firestore
-  // ---------------------------
-  el("finishBtn")?.addEventListener("click", async () => {
-    if (!user || !session.workout) { setActiveTabUI("dashboard"); return; }
-
-    const items = Object.entries(session.items).map(([ex, sets]) => ({ ex, sets }));
-    const payload = {
-      date: session.date,
-      month: monthKey(session.date),
-      workout: session.workout,
-      items,
-      createdAt: Date.now()
-    };
-
-    try {
-      await addDoc(collection(db, "users", user.uid, "sessions"), payload);
-
-      clearDraft();
-
-      currentWorkout = null;
-      currentExercise = null;
-      session = { date: todayISO(), workout: null, items: {} };
-
-      await loadHistory();
-      renderDashboard();
-      renderHistory();
-      renderProgress();
-      setActiveTabUI("dashboard");
-    } catch (e) {
-      console.error(e);
-      alert("Не удалось сохранить. Проверь Rules/доступ.");
-    }
-  });
-
-  // ---------------------------
-  // Dashboard: 3 workouts per week
-  // ---------------------------
-  function weekRangeISO() {
-    const now = new Date();
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const day = (d.getDay() + 6) % 7; // Monday=0..6
-    const monday = new Date(d); monday.setDate(d.getDate() - day);
-    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-
-    const toISO = (x) => {
-      const tz = x.getTimezoneOffset() * 60000;
-      return new Date(x.getTime() - tz).toISOString().slice(0, 10);
-    };
-    return { start: toISO(monday), end: toISO(sunday) };
-  }
-
-  function renderDashboard() {
-    const todayEl = el("today");
-    if (todayEl) todayEl.textContent = "Сегодня: " + fmt(todayISO());
-
-    const GOAL_PER_WEEK = 3;
-    const { start, end } = weekRangeISO();
-    const count = history.filter(h => h.date >= start && h.date <= end).length;
-
-    const stat = el("monthStat");
-    if (stat) stat.textContent = `${count} / ${GOAL_PER_WEEK} тренировок`;
-
-    const pct = Math.min(100, Math.round((count / GOAL_PER_WEEK) * 100));
-    const bar = el("monthBar");
-    if (bar) bar.style.width = pct + "%";
-
-    const last = history[0];
-    const lastWrap = el("lastWorkout");
-    if (lastWrap) {
-      if (!last) {
-        lastWrap.textContent = "Пока нет записей.";
-      } else {
-        lastWrap.innerHTML = `
-          <div style="font-weight:900">${last.workout}</div>
-          <div class="muted">${fmt(last.date)} • Упражнений: ${(last.items || []).length}</div>
-        `;
+        if(kind==="body"){
+          const ok = confirm(`Удалить замер за неделю ${fmtISO(id)}?`);
+          if(!ok) return;
+          delete data.bodyWeekly[id];
+        }
+        saveData();
+        render();
       }
-    }
-
-    updateGoStartButton();
-
-    // если блок веса/параметров на главной — держим в актуале
-    renderBodyWeightChart();
-    renderBodyMeasTable();
-  }
-
-  // ---------------------------
-  // History + export
-  // ---------------------------
-  function renderMonthSelect() {
-    const months = Array.from(new Set(history.map(h => h.month))).sort().reverse();
-    const sel = el("monthSelect");
-    if (!sel) return;
-
-    sel.innerHTML = months.map(m => `<option value="${m}">${monthTitle(m)}</option>`).join("");
-    if (!months.length) {
-      sel.innerHTML = `<option value="">Нет данных</option>`;
-    }
-  }
-
-  function renderHistory() {
-    renderMonthSelect();
-
-    const list = el("historyList");
-    if (!list) return;
-
-    if (!history.length) {
-      list.innerHTML = `<div class="card"><div class="muted">Пока нет записей.</div></div>`;
-      return;
-    }
-
-    list.innerHTML = history.slice(0, 10).map(t => {
-      const body = (t.items || []).map(it => {
-        const line = (it.sets || []).map(s => `${s.setNo}: ${s.weight}кг×${s.reps}`).join(" • ");
-        return `<div style="margin-top:10px">
-          <div style="font-weight:900;font-size:13px">${it.ex}</div>
-          <div class="muted" style="margin-top:2px">${line || "—"}</div>
-        </div>`;
-      }).join("");
-
-      return `
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
-            <div>
-              <div style="font-weight:900">${t.workout}</div>
-              <div class="muted">${fmt(t.date)}</div>
-            </div>
-            <button class="btn secondary delSessionBtn"
-                    data-id="${t.id}"
-                    style="width:auto;padding:10px 12px">
-              Удалить
-            </button>
-          </div>
-          <div class="kpi">${body || `<div class="muted">Нет упражнений.</div>`}</div>
-        </div>
-      `;
-    }).join("");
-
-    list.querySelectorAll(".delSessionBtn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        deleteSessionById(e.currentTarget.dataset.id);
-      });
-    });
-  }
-
-  function buildCsvForMonth(ym) {
-    const rows = [["date", "month", "workout", "exercise", "setNo", "weight", "reps"]];
-    history
-      .filter(h => h.month === ym)
-      .forEach(h => {
-        (h.items || []).forEach(it => {
-          (it.sets || []).forEach(s => {
-            rows.push([h.date, h.month, h.workout, it.ex, s.setNo, s.weight, s.reps]);
-          });
-        });
-      });
-
-    return rows.map(r => r.map(csvEscape).join(",")).join("\n");
-  }
-
-  el("exportMonth")?.addEventListener("click", () => {
-    const sel = el("monthSelect");
-    const ym = sel ? sel.value : "";
-    if (!ym) return alert("Нет данных.");
-    const csv = buildCsvForMonth(ym);
-    downloadText(`workouts_${ym}.csv`, csv);
-  });
-
-  el("exportAllMonths")?.addEventListener("click", () => {
-    const months = Array.from(new Set(history.map(h => h.month))).sort();
-    if (!months.length) return alert("Нет данных.");
-    months.forEach(ym => {
-      const csv = buildCsvForMonth(ym);
-      downloadText(`workouts_${ym}.csv`, csv);
     });
   });
+}
 
-  // ---------------------------
-  // Progress: last vs prev
-  // ---------------------------
-  function buildProgressLastVsPrev() {
-    const logs = [];
-    for (const h of history) {
-      for (const it of (h.items || [])) {
-        const best = Math.max(...(it.sets || []).map(s => Number(s.weight || 0)), 0);
-        logs.push({ ex: it.ex, date: h.date, best });
-      }
-    }
+function getCSS(varName){
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+}
+function escapeHtml(s){
+  return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+}
 
-    const byEx = new Map();
-    for (const r of logs) {
-      if (!byEx.has(r.ex)) byEx.set(r.ex, []);
-      byEx.get(r.ex).push(r);
-    }
+/* ---------------------------
+   Demo interactions
+   --------------------------- */
+$("dDate").value = todayISO();
 
-    const rows = [];
-    for (const [ex, arr] of byEx.entries()) {
-      arr.sort((a, b) => b.date.localeCompare(a.date));
-      const last = arr[0];
-      const prev = arr[1];
-
-      const lastW = last?.best ?? 0;
-      const prevW = prev?.best ?? 0;
-      const delta = lastW - prevW;
-
-      rows.push({ ex, lastW, prevW, delta });
-    }
-
-    rows.sort((a, b) => (b.delta - a.delta) || (b.lastW - a.lastW));
-    return rows;
-  }
-
-  function renderProgress() {
-    const rows = buildProgressLastVsPrev();
-    const wrap = el("progressTableWrap");
-    if (!wrap) return;
-
-    if (!rows.length) {
-      wrap.innerHTML = `<div class="muted">Недостаточно данных.</div>`;
-      return;
-    }
-
-    wrap.innerHTML = `
-      <div class="tableScroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Упражнение</th>
-              <th>Последний</th>
-              <th>Предыдущий</th>
-              <th>Δ</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map(r => {
-              const cls = r.delta >= 0 ? "deltaPlus" : "deltaMinus";
-              const sign = r.delta >= 0 ? "+" : "";
-              const prevTxt = r.prevW ? `${r.prevW} кг` : "—";
-              return `
-                <tr>
-                  <td>${r.ex}</td>
-                  <td><b>${r.lastW} кг</b></td>
-                  <td>${prevTxt}</td>
-                  <td class="${cls}">${r.prevW ? (sign + r.delta + " кг") : "—"}</td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
-
-  // ---------------------------
-  // Admin
-  // ---------------------------
-  el("adminLoadBtn")?.addEventListener("click", async () => {
-    if (!isAdminLocal()) return adminMsg("Нет доступа", true);
-
-    const sel = el("adminUserSelect");
-    const targetUid = sel ? sel.value : "";
-    const program = await loadProgramDoc(targetUid);
-
-    if (!program) {
-      const ta = el("adminProgramJson");
-      if (ta) ta.value = "";
-      return adminMsg("У пользователя нет сохранённой программы. Нажми «Скопировать дефолт» и «Сохранить».");
-    }
-
-    el("adminProgramJson").value = JSON.stringify(program, null, 2);
-    adminMsg("Загружено.");
-  });
-
-  el("adminCopyDefaultBtn")?.addEventListener("click", () => {
-    if (!isAdminLocal()) return adminMsg("Нет доступа", true);
-    el("adminProgramJson").value = JSON.stringify(DEFAULT_PROGRAM, null, 2);
-    adminMsg("Дефолт вставлен. Правь JSON и жми «Сохранить».");
-  });
-
-  el("adminSaveBtn")?.addEventListener("click", async () => {
-    if (!isAdminLocal()) return adminMsg("Нет доступа", true);
-
-    const targetUid = el("adminUserSelect").value;
-    const raw = el("adminProgramJson").value.trim();
-    if (!raw) return adminMsg("Пустой JSON", true);
-
-    let programObj;
-    try {
-      programObj = JSON.parse(raw);
-    } catch (e) {
-      return adminMsg("JSON не парсится. Проверь запятые/кавычки.", true);
-    }
-
-    const err = validateProgramShape(programObj);
-    if (err) return adminMsg(err, true);
-
-    try {
-      await saveProgramDoc(targetUid, programObj);
-      adminMsg("Сохранено в Firestore.");
-
-      if (user && targetUid === user.uid) {
-        PROGRAM = programObj;
-      }
-      renderWorkoutSelect();
-    } catch (e) {
-      console.error(e);
-      adminMsg("Не удалось сохранить (проверь Rules).", true);
-    }
-  });
-
- await setPersistence(auth, browserLocalPersistence);
-
-onAuthStateChanged(auth, async (u) => {
-  // Единый лоадер
-  setLoading(true, "Проверяю вход…");
-
-  // на всякий — прячем всё, пока грузим
-  show("screenBoot", false);
-  show("screenLogin", false);
-  show("screenApp", false);
-  show("logoutBtn", false);
-  show("adminTabBtn", false);
-  setSub("Загрузка…");
-
-  try {
-    if (!u) {
-      user = null;
-      profile = null;
-      history = [];
-      PROGRAM = DEFAULT_PROGRAM;
-
-      setLoading(false);
-
-      show("screenLogin", true);
-      setSub("Вход");
-      return;
-    }
-
-    user = u;
-
-    // program
-    let loaded = await loadProgramDoc(user.uid);
-    if (!loaded) {
-      await saveProgramDoc(user.uid, DEFAULT_PROGRAM);
-      loaded = DEFAULT_PROGRAM;
-    }
-    PROGRAM = loaded;
-
-    // profile
-    const ref = doc(db, "users", user.uid);
-    const snap = await getDoc(ref);
-    profile = snap.exists() ? snap.data() : { nick: "—" };
-
-    // history
-    await loadHistory();
-
-    // body weekly + init UI
-    await loadBodyWeekly();
-    initBodyUI();
-    renderBodyWeightChart();
-    renderBodyMeasTable();
-
-    // UI
-    el("profileName").textContent = profile.nick || "—";
-    setSub(profile.nick || "—");
-
-    setLoading(false);
-
-    show("screenApp", true);
-    show("logoutBtn", true);
-    show("adminTabBtn", user.uid === ADMIN_UID);
-
-    setActiveTabUI("dashboard");
-    renderWorkoutSelect();
-    renderDashboard();
-    renderHistory();
-    renderProgress();
-    updateGoStartButton();
-  } catch (err) {
-    console.error("Auth init failed:", err);
-
-    setLoading(false);
-
-    show("screenLogin", true);
-    show("screenApp", false);
-    setSub("Вход");
-  }
+$("dType").addEventListener("change", ()=>{
+  const t = $("dType").value;
+  $("workoutFields").style.display = (t==="workout") ? "" : "none";
+  $("setsFields").style.display = (t==="sets") ? "" : "none";
+  $("bodyFields").style.display = (t==="body") ? "" : "none";
+  $("prFields").style.display = (t==="pr") ? "" : "none";
 });
 
-  // ---------------------------
-  // Login / Logout
-  // ---------------------------
-  el("loginBtn")?.addEventListener("click", async () => {
-    const nick = (el("nick")?.value || "").trim().toLowerCase();
-    const pass = (el("pass")?.value || "").trim();
+$("addDemo").addEventListener("click", ()=>{
+  const dateISO = $("dDate").value || todayISO();
+  const t = $("dType").value;
 
-    const hint = el("loginHint"); // может отсутствовать
-    const showHint = (html) => {
-      if (!hint) return;
-      hint.style.display = "";
-      hint.innerHTML = html;
+  if(t==="workout"){
+    const name = ($("wName").value || "").trim() || "Тренировка";
+    data.workouts.push({ id: uid(), dateISO, name });
+  }
+
+  if(t==="sets"){
+    const setsCount = Number($("sCount").value || 0);
+    const exCount = Number($("sEx").value || 0);
+    if(setsCount<=0) return alert("Подходов должно быть > 0");
+    data.sets.push({ id: uid(), dateISO, setsCount, exCount });
+  }
+
+  if(t==="body"){
+    const mon = mondayOf(dateISO);
+    const payload = {
+      updatedAt: Date.now()
     };
+    const w = parseNum($("bWeight").value);
+    const c = parseNum($("bChest").value);
+    const wa = parseNum($("bWaist").value);
+    const h = parseNum($("bHips").value);
+    if(w!=null) payload.weight = w;
+    if(c!=null) payload.chest = c;
+    if(wa!=null) payload.waist = wa;
+    if(h!=null) payload.hips = h;
 
-    if (!nick || !pass) {
-      showHint(`<b>Ошибка:</b> Заполни никнейм и пароль.`);
-      return;
+    if(Object.keys(payload).length===1){
+      return alert("Заполни хоть одно поле (вес/параметры).");
     }
 
-    const email = NICK_TO_EMAIL[nick];
-    if (!email) {
-      showHint(`<b>Ошибка:</b> Нет доступа.`);
-      return;
-    }
+    const prev = data.bodyWeekly[mon] || {};
+    data.bodyWeekly[mon] = { ...prev, ...payload };
+  }
 
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
-    } catch (e) {
-      showHint(`<b>Ошибка:</b> Неверный никнейм или пароль.`);
-      console.error(e);
+  if(t==="pr"){
+    const ex = ($("prName").value || "").trim();
+    const w = parseNum($("prWeight").value);
+    if(!ex) return alert("Напиши упражнение.");
+    if(w==null) return alert("Напиши вес.");
+    const prev = Number(data.prs[ex] || 0);
+    if(w > prev){
+      data.prs[ex] = w;
+      addBadge("pr", `Новый рекорд: ${ex} — ${w} кг (было ${prev || "—"})`);
+    }else{
+      // optional: no badge
+      data.prs[ex] = prev; // keep
+      alert(`Не PR. Текущий PR: ${prev} кг`);
     }
+  }
+
+  saveData();
+  render();
+});
+
+$("add3weeks").addEventListener("click", ()=>{
+  // generate sample: 3 weeks including current
+  const currMon = weekKey(todayISO());
+  const weeks = [0, -7, -14].map(offset=>{
+    const [y,m,d]=currMon.split("-").map(Number);
+    const dt=new Date(y,m-1,d);
+    dt.setDate(dt.getDate()+offset);
+    const tz=dt.getTimezoneOffset()*60000;
+    return new Date(dt.getTime()-tz).toISOString().slice(0,10);
   });
 
-  el("logoutBtn")?.addEventListener("click", async () => {
-    await signOut(auth);
+  for(const mon of weeks){
+    const {start} = weekRange(mon);
+    // 3 workouts spread
+    data.workouts.push({ id: uid(), dateISO: start, name:"Вверх" });
+    data.workouts.push({ id: uid(), dateISO: addDaysISO(start,2), name:"Ягодицы" });
+    data.workouts.push({ id: uid(), dateISO: addDaysISO(start,4), name:"Ноги" });
 
-    if (el("nick")) el("nick").value = "";
-    if (el("pass")) el("pass").value = "";
+    // sets (total 42)
+    data.sets.push({ id: uid(), dateISO: start, setsCount: 14, exCount: 5 });
+    data.sets.push({ id: uid(), dateISO: addDaysISO(start,2), setsCount: 14, exCount: 5 });
+    data.sets.push({ id: uid(), dateISO: addDaysISO(start,4), setsCount: 14, exCount: 5 });
 
-    const hint = el("loginHint");
-    if (hint) {
-      hint.style.display = "none";
-      hint.innerHTML = "";
-    }
-  });
+    // body once
+    data.bodyWeekly[mon] = { weight: 60 + Math.random()*2, chest: 90 + Math.random()*2, waist: 68 + Math.random()*2, hips: 96 + Math.random()*2, updatedAt: Date.now() };
+  }
 
-// ---------------------------
-// Initial UI (no flicker)
-// ---------------------------
-show("screenLoading", false);
-show("screenBoot", true);
-show("screenLogin", false);
-show("screenApp", false);
-show("logoutBtn", false);
-show("adminTabBtn", false);
-setSub("Загрузка…");
+  // PR samples
+  if(!data.prs["Жим гантелей"]) data.prs["Жим гантелей"]=20;
+  data.prs["Жим гантелей"] += 2.5;
+  addBadge("pr", `Новый рекорд: Жим гантелей — ${data.prs["Жим гантелей"]} кг`);
+
+  saveData();
+  render();
+});
+
+$("resetAll").addEventListener("click", ()=>{
+  const ok = confirm("Сбросить все демо-данные?");
+  if(!ok) return;
+  localStorage.removeItem(LS_KEY);
+  data = loadData();
+  render();
+});
+
+function parseNum(v){
+  if(v==="" || v==null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+function addDaysISO(iso, days){
+  const [y,m,d]=iso.split("-").map(Number);
+  const dt=new Date(y,m-1,d);
+  dt.setDate(dt.getDate()+days);
+  const tz=dt.getTimezoneOffset()*60000;
+  return new Date(dt.getTime()-tz).toISOString().slice(0,10);
+}
+
+// init
+render();
 </script>
-
-
-<div id="machineModal" style="display:none; position:fixed; inset:0; z-index:9999;">
-  <div id="machineBackdrop" style="position:absolute; inset:0; background:rgba(0,0,0,.6);"></div>
-
-  <div style="position:relative; margin:8vh auto 0; width:min(92vw, 420px);">
-    <div class="card" style="padding:12px; margin:0;">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-        <div style="font-weight:900;">Тренажёр</div>
-        <button class="iconbtn" id="machineClose" type="button" title="Закрыть">✕</button>
-      </div>
-
-      <div style="margin-top:10px;">
-        <img id="machineImg" src="" alt="Тренажёр"
-             style="width:100%; height:auto; border-radius:18px; border:1px solid var(--border); display:block;" />
-      </div>
-
-      <div class="muted" id="machineErr" style="display:none; margin-top:10px;">
-        Не удалось загрузить изображение. Проверь ссылку.
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="videoModal" style="display:none; position:fixed; inset:0; z-index:9999;">
-  <div id="videoBackdrop" style="position:absolute; inset:0; background:rgba(0,0,0,.6);"></div>
-
-  <div style="position:relative; margin:8vh auto 0; width:min(92vw, 420px);">
-    <div class="card" style="padding:12px; margin:0;">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-        <div style="font-weight:900;">Видео</div>
-        <button class="iconbtn" id="videoClose" type="button" title="Закрыть">✕</button>
-      </div>
-
-      <div style="margin-top:10px;">
-        <video id="videoPlayer"
-               controls
-               playsinline
-               preload="metadata"
-               style="width:100%; height:auto; border-radius:18px; border:1px solid var(--border); display:block; background:#000;">
-        </video>
-      </div>
-
-      <div class="muted" id="videoErr" style="display:none; margin-top:10px;">
-        Не удалось загрузить видео. Проверь ссылку или формат.
-      </div>
-    </div>
-  </div>
-</div>
-
 </body>
 </html>
