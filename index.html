@@ -319,6 +319,54 @@
 }
 
 
+/* Loading screen */
+.loadingScreen{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--bg);
+}
+
+.loadingInner{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:12px;
+  padding:18px 16px;
+  border-radius:22px;
+}
+
+.loadingText{
+  font-size:14px;
+  font-weight:800;
+  color:var(--muted);
+  letter-spacing:.2px;
+}
+
+/* Spinner */
+.spinner{
+  width:34px;
+  height:34px;
+  border-radius:999px;
+  border:3px solid rgba(255,255,255,.16);
+  border-top-color: var(--btn);
+  animation:spin .9s linear infinite;
+}
+
+/* Pink: можно чуть ярче */
+[data-theme="pink"] .spinner{
+  border:3px solid rgba(255,255,255,.14);
+  border-top-color: var(--btn);
+}
+
+@keyframes spin{
+  to { transform:rotate(360deg); }
+}
+
+
 </style>
 </head>
 
@@ -333,10 +381,15 @@
         </div>
       </div>
 
-<!-- BOOT (показывается пока Firebase проверяет сессию) -->
-<div id="screenBoot" class="card">
-  <div style="font-weight:900;font-size:16px">Загрузка…</div>
-  <div class="muted" style="margin-top:6px">Проверяю вход</div>
+
+
+
+<!-- BOOT (единственный лоадер) -->
+<div id="screenBoot" class="loadingScreen" style="display:none;">
+  <div class="loadingInner">
+    <div class="spinner" aria-hidden="true"></div>
+    <div class="loadingText">Проверяю вход…</div>
+  </div>
 </div>
 
       <div class="right">
@@ -589,7 +642,6 @@
 
 
   <!-- Chart.js (CDN) -->
-<!-- Chart.js (CDN) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <script type="module">
@@ -688,54 +740,76 @@
   let session = { date: todayISO(), workout: null, items: {} }; // items[exName] = sets[]
 
   // ---------------------------
-  // Helpers
-  // ---------------------------
-  function el(id) { return document.getElementById(id); }
-  function show(id, yes = true) { const n = el(id); if (n) n.style.display = yes ? "" : "none"; }
-  function setSub(txt) { const n = el("sub"); if (n) n.textContent = txt; }
+// Helpers
+// ---------------------------
+function el(id) { return document.getElementById(id); }
 
-  function adminMsg(text, isError = false) {
-    const box = el("adminStatus");
-    if (!box) return;
-    box.style.display = "";
-    box.innerHTML = isError ? `<b>Ошибка:</b> ${text}` : text;
-  }
+function show(id, yes = true) {
+  const n = el(id);
+  if (!n) return;
+  n.style.display = yes ? "" : "none";
+}
 
-  function todayISO() {
-    const d = new Date();
-    const tz = d.getTimezoneOffset() * 60000;
-    return new Date(Date.now() - tz).toISOString().slice(0, 10);
-  }
+function setSub(txt) {
+  const n = el("sub");
+  if (n) n.textContent = txt;
+}
 
-  function fmt(iso) {
-    const [y, m, d] = iso.split("-");
-    return `${d}.${m}.${y}`;
-  }
+// LOADING helper
+function setLoading(on, text = "Загрузка") {
+  const scr = el("screenLoading");
+  if (scr) scr.style.display = on ? "" : "none";
 
-  function monthKey(iso) { return iso.slice(0, 7); } // YYYY-MM
-  function monthTitle(ym) {
-    const [y, m] = ym.split("-");
-    return `${m}.${y}`;
-  }
+  // текст внутри лоадера (если есть)
+  const t = scr?.querySelector?.(".loadingText");
+  if (t) t.textContent = text;
 
-  function downloadText(filename, text) {
-    const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
-  }
+  // блокируем прокрутку пока грузимся
+  document.body.style.overflow = on ? "hidden" : "";
+}
 
-  function csvEscape(v) {
-    const s = String(v ?? "");
-    return `"${s.replaceAll('"', '""')}"`;
-  }
+function adminMsg(text, isError = false) {
+  const box = el("adminStatus");
+  if (!box) return;
+  box.style.display = "";
+  box.innerHTML = isError ? `<b>Ошибка:</b> ${text}` : text;
+}
 
-  function toNumOrNull(v) {
-    if (v === "" || v === null || v === undefined) return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  }
+function todayISO() {
+  const d = new Date();
+  const tz = d.getTimezoneOffset() * 60000;
+  return new Date(Date.now() - tz).toISOString().slice(0, 10);
+}
+
+function fmt(iso) {
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
+
+function monthKey(iso) { return iso.slice(0, 7); } // YYYY-MM
+function monthTitle(ym) {
+  const [y, m] = ym.split("-");
+  return `${m}.${y}`;
+}
+
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function csvEscape(v) {
+  const s = String(v ?? "");
+  return `"${s.replaceAll('"', '""')}"`;
+}
+
+function toNumOrNull(v) {
+  if (v === "" || v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 
   // ---------------------------
   // Body weekly (Firestore): users/{uid}/bodyWeekly/{mondayISO}
@@ -1888,9 +1962,14 @@ function themeLineColor() {
     }
   });
 
-  onAuthStateChanged(auth, async (u) => {
-  // пока Firebase + Firestore грузятся — держим boot
-  show("screenBoot", true);
+ await setPersistence(auth, browserLocalPersistence);
+
+onAuthStateChanged(auth, async (u) => {
+  // Единый лоадер
+  setLoading(true, "Проверяю вход…");
+
+  // на всякий — прячем всё, пока грузим
+  show("screenBoot", false);
   show("screenLogin", false);
   show("screenApp", false);
   show("logoutBtn", false);
@@ -1904,10 +1983,9 @@ function themeLineColor() {
       history = [];
       PROGRAM = DEFAULT_PROGRAM;
 
-      // показываем login
-      show("screenBoot", false);
+      setLoading(false);
+
       show("screenLogin", true);
-      show("screenApp", false);
       setSub("Вход");
       return;
     }
@@ -1940,9 +2018,8 @@ function themeLineColor() {
     el("profileName").textContent = profile.nick || "—";
     setSub(profile.nick || "—");
 
-    // теперь можно показывать app
-    show("screenBoot", false);
-    show("screenLogin", false);
+    setLoading(false);
+
     show("screenApp", true);
     show("logoutBtn", true);
     show("adminTabBtn", user.uid === ADMIN_UID);
@@ -1956,8 +2033,8 @@ function themeLineColor() {
   } catch (err) {
     console.error("Auth init failed:", err);
 
-    // если что-то упало — лучше показать login, чем пустой app
-    show("screenBoot", false);
+    setLoading(false);
+
     show("screenLogin", true);
     show("screenApp", false);
     setSub("Вход");
@@ -2013,6 +2090,7 @@ function themeLineColor() {
 // ---------------------------
 // Initial UI (no flicker)
 // ---------------------------
+show("screenLoading", false);
 show("screenBoot", true);
 show("screenLogin", false);
 show("screenApp", false);
