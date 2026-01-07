@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
   <title>Workout Tracker</title>
   <meta name="theme-color" content="#0b0b0c" />
   <link rel="icon" href="https://ik.imagekit.io/tgquwnwxx/Frame%2044.svg" type="image/svg">
@@ -367,6 +367,25 @@
 }
 
 
+html, body{
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* safe-area для айфонов с вырезом */
+.wrap{
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-right: calc(14px + env(safe-area-inset-right));
+  padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  padding-left: calc(14px + env(safe-area-inset-left));
+}
+
+/* sticky tabs учитывают safe-area сверху */
+.tabs{
+  top: env(safe-area-inset-top);
+}
+
+
 </style>
 </head>
 
@@ -506,9 +525,9 @@
       <button class="btn secondary" id="bodyClearBtn">Очистить все записи</button>
     </div>
 
-    <div style="margin-top:12px">
-      <canvas id="bodyWeightChart"></canvas>
-    </div>
+<div style="margin-top:12px; height:220px;">
+  <canvas id="bodyWeightChart" style="width:100%; height:100%; display:block;"></canvas>
+</div>
 
     <div style="font-weight:900;margin-top:14px">Прогресс параметров</div>
     <div id="bodyMeasTableWrap" class="muted" style="margin-top:10px">Пока нет данных.</div>
