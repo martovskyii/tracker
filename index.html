@@ -150,6 +150,8 @@
   }
   .tabs::-webkit-scrollbar{display:none;}
 
+  #bodyWeightChart{ width:100%; height:220px; }
+
   .tab{
     flex:0 0 auto;
     padding:10px 10px;
@@ -281,6 +283,10 @@
     text-align:right;
   }
 
+.delta{font-weight:900}
+.delta.up{color:var(--success)}  /* + */
+.delta.down{color:var(--danger)} /* - */
+.delta.eq{color:rgba(255,255,255,.65)}
 
   .workoutHead{
   display:flex;
@@ -369,40 +375,87 @@
         <div class="tab" data-tab="admin" id="adminTabBtn" style="display:none;">Админ</div>
       </div>
 
-      <!-- DASHBOARD -->
-      <div id="tab-dashboard" class="tabpane">
-        <div class="card">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
-            <div>
-              <div class="muted">Профиль</div>
-              <div style="font-size:20px;font-weight:900;margin-top:2px" id="profileName">—</div>
-              <div class="muted" id="today"></div>
-            </div>
-          </div>
-
-          <div class="kpi">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <div style="font-weight:800;font-size:14px">Эта неделя</div>
-              <div class="muted" id="monthStat">0 тренировок</div>
-            </div>
-            <div class="bar"><div id="monthBar"></div></div>
-            <div class="muted" style="margin-top:8px">План = 3 тренировки/неделю.</div>
-          </div>
-
-          <div class="actions">
-            <button class="btn primary" id="goStart">Начать тренировку</button>
-            <div class="two">
-              <button class="btn secondary" id="goHistory">История</button>
-              <button class="btn secondary" id="goProgress">Прогресс</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div style="font-weight:900;margin-bottom:8px">Последняя тренировка</div>
-          <div id="lastWorkout" class="muted">Пока нет записей.</div>
-        </div>
+<!-- DASHBOARD -->
+<div id="tab-dashboard" class="tabpane">
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+      <div>
+        <div class="muted">Профиль</div>
+        <div style="font-size:20px;font-weight:900;margin-top:2px" id="profileName">—</div>
+        <div class="muted" id="today"></div>
       </div>
+    </div>
+
+    <div class="kpi">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:800;font-size:14px">Эта неделя</div>
+        <div class="muted" id="monthStat">0 тренировок</div>
+      </div>
+      <div class="bar"><div id="monthBar"></div></div>
+      <div class="muted" style="margin-top:8px">План = 3 тренировки/неделю.</div>
+    </div>
+
+    <div class="actions">
+      <button class="btn primary" id="goStart">Начать тренировку</button>
+      <div class="two">
+        <button class="btn secondary" id="goHistory">История</button>
+        <button class="btn secondary" id="goProgress">Прогресс</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:900;margin-bottom:8px">Последняя тренировка</div>
+    <div id="lastWorkout" class="muted">Пока нет записей.</div>
+  </div>
+
+  <!-- BODY (только на главной) -->
+  <div class="card">
+    <h2>Тело</h2>
+    <div class="muted">Запись 1 раз в неделю. Дата округляется до понедельника.</div>
+
+    <div class="row" style="margin-top:10px">
+      <div>
+        <label>Дата</label>
+        <input id="bodyDate" type="date" />
+      </div>
+      <div>
+        <label>Вес (кг)</label>
+        <input id="bodyWeight" type="number" step="0.1" placeholder="например 60.5" />
+      </div>
+    </div>
+
+    <div style="font-weight:900;margin-top:12px">Параметры (см)</div>
+    <div class="row" style="margin-top:8px">
+      <div>
+        <label>Грудь</label>
+        <input id="bodyChest" type="number" step="0.1" placeholder="например 92" />
+      </div>
+      <div>
+        <label>Талия</label>
+        <input id="bodyWaist" type="number" step="0.1" placeholder="например 68" />
+      </div>
+    </div>
+
+    <div style="margin-top:10px">
+      <label>Бёдра</label>
+      <input id="bodyHips" type="number" step="0.1" placeholder="например 96" />
+    </div>
+
+    <div class="actions" style="margin-top:12px">
+      <button class="btn primary" id="bodySaveBtn">Сохранить</button>
+      <button class="btn secondary" id="bodyClearBtn">Очистить все записи</button>
+    </div>
+
+    <div style="margin-top:12px">
+      <canvas id="bodyWeightChart"></canvas>
+    </div>
+
+    <div style="font-weight:900;margin-top:14px">Прогресс параметров</div>
+    <div id="bodyMeasTableWrap" class="muted" style="margin-top:10px">Пока нет данных.</div>
+  </div>
+</div>
+
 
       <!-- SELECT -->
       <div id="tab-select" class="tabpane" style="display:none;">
@@ -528,6 +581,11 @@
     </div>
   </div>
 
+
+  <!-- Chart.js (CDN) -->
+<!-- Chart.js (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 
@@ -550,7 +608,8 @@
     getDocs,
     query,
     orderBy,
-    deleteDoc
+    deleteDoc,
+    writeBatch
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
   // ---------------------------
@@ -578,7 +637,7 @@
   };
 
   const ADMIN_UID = "TJ4cLJ0pVgb0dkh2R6IDdDS8k6F2";
-  function isAdminLocal(){
+  function isAdminLocal() {
     return !!user && user.uid === ADMIN_UID;
   }
 
@@ -587,24 +646,24 @@
   // ---------------------------
   const DEFAULT_PROGRAM = {
     "Вверх": [
-      {name:"Тяга верхнего блока / гравитрон", scheme:"4×15 | 12", video:"https://drive.google.com/"},
-      {name:"Бабочка", scheme:"4×12 | 10", video:"https://drive.google.com/"},
-      {name:"Жим гантелей сидя / стоя", scheme:"4×12", video:"https://drive.google.com/"},
-      {name:"Отжимания обратным хватом", scheme:"3×max", video:"https://drive.google.com/"},
-      {name:"Сгибание гантелей стоя", scheme:"3×12", video:"https://drive.google.com/"}
+      { name: "Тяга верхнего блока / гравитрон", scheme: "4×15 | 12", video: "https://drive.google.com/" },
+      { name: "Бабочка", scheme: "4×12 | 10", video: "https://drive.google.com/" },
+      { name: "Жим гантелей сидя / стоя", scheme: "4×12", video: "https://drive.google.com/" },
+      { name: "Отжимания обратным хватом", scheme: "3×max", video: "https://drive.google.com/" },
+      { name: "Сгибание гантелей стоя", scheme: "3×12", video: "https://drive.google.com/" }
     ],
     "Ягодицы": [
-      {name:"Разгиб сидя в тренажёре", scheme:"3×15", video:"https://drive.google.com/"},
-      {name:"Присед в Смите", scheme:"5×12 | 10", video:"https://drive.google.com/"},
-      {name:"Ягодичный мостик (штанга)", scheme:"4×12 | 10", video:"https://drive.google.com/"},
-      {name:"Румынская тяга", scheme:"4×12 | 10", video:"https://drive.google.com/"},
-      {name:"Выпады в Смите (обычные)", scheme:"3×10 на ногу", video:"https://drive.google.com/"}
+      { name: "Разгиб сидя в тренажёре", scheme: "3×15", video: "https://drive.google.com/" },
+      { name: "Присед в Смите", scheme: "5×12 | 10", video: "https://drive.google.com/" },
+      { name: "Ягодичный мостик (штанга)", scheme: "4×12 | 10", video: "https://drive.google.com/" },
+      { name: "Румынская тяга", scheme: "4×12 | 10", video: "https://drive.google.com/" },
+      { name: "Выпады в Смите (обычные)", scheme: "3×10 на ногу", video: "https://drive.google.com/" }
     ],
     "Ноги": [
-      {name:"Разгиб сидя в тренажёре", scheme:"3×15", video:"https://drive.google.com/"},
-      {name:"Присед в Смите (средняя / узкая стойка)", scheme:"5×12 | 10", video:"https://drive.google.com/"},
-      {name:"Жим ногами в платформе", scheme:"4×10", video:"https://drive.google.com/"},
-      {name:"Сгибание ног сидя", scheme:"4×12 | 10", video:"https://drive.google.com/"}
+      { name: "Разгиб сидя в тренажёре", scheme: "3×15", video: "https://drive.google.com/" },
+      { name: "Присед в Смите (средняя / узкая стойка)", scheme: "5×12 | 10", video: "https://drive.google.com/" },
+      { name: "Жим ногами в платформе", scheme: "4×10", video: "https://drive.google.com/" },
+      { name: "Сгибание ног сидя", scheme: "4×12 | 10", video: "https://drive.google.com/" }
     ]
   };
 
@@ -620,62 +679,304 @@
 
   let currentWorkout = null;
   let currentExercise = null;
-  let session = { date: todayISO(), workout:null, items:{} }; // items[exName] = sets[]
+  let session = { date: todayISO(), workout: null, items: {} }; // items[exName] = sets[]
 
   // ---------------------------
   // Helpers
   // ---------------------------
-  function el(id){ return document.getElementById(id); }
-  function show(id, yes=true){ const n = el(id); if(n) n.style.display = yes ? "" : "none"; }
-  function setSub(txt){ const n = el("sub"); if(n) n.textContent = txt; }
+  function el(id) { return document.getElementById(id); }
+  function show(id, yes = true) { const n = el(id); if (n) n.style.display = yes ? "" : "none"; }
+  function setSub(txt) { const n = el("sub"); if (n) n.textContent = txt; }
 
-  function adminMsg(text, isError=false){
+  function adminMsg(text, isError = false) {
     const box = el("adminStatus");
-    if(!box) return;
+    if (!box) return;
     box.style.display = "";
     box.innerHTML = isError ? `<b>Ошибка:</b> ${text}` : text;
   }
 
-  function todayISO(){
+  function todayISO() {
     const d = new Date();
-    const tz = d.getTimezoneOffset()*60000;
-    return new Date(Date.now()-tz).toISOString().slice(0,10);
+    const tz = d.getTimezoneOffset() * 60000;
+    return new Date(Date.now() - tz).toISOString().slice(0, 10);
   }
 
-  function fmt(iso){
-    const [y,m,d] = iso.split("-");
+  function fmt(iso) {
+    const [y, m, d] = iso.split("-");
     return `${d}.${m}.${y}`;
   }
 
-  function monthKey(iso){ return iso.slice(0,7); } // YYYY-MM
-  function monthTitle(ym){
-    const [y,m] = ym.split("-");
+  function monthKey(iso) { return iso.slice(0, 7); } // YYYY-MM
+  function monthTitle(ym) {
+    const [y, m] = ym.split("-");
     return `${m}.${y}`;
   }
 
-  function downloadText(filename, text){
-    const blob = new Blob([text], {type:"text/csv;charset=utf-8"});
+  function downloadText(filename, text) {
+    const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
   }
 
-  function csvEscape(v){
+  function csvEscape(v) {
     const s = String(v ?? "");
-    return `"${s.replaceAll('"','""')}"`;
+    return `"${s.replaceAll('"', '""')}"`;
+  }
+
+  function toNumOrNull(v) {
+    if (v === "" || v === null || v === undefined) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  // ---------------------------
+  // Body weekly (Firestore): users/{uid}/bodyWeekly/{mondayISO}
+  // ---------------------------
+  let bodyWeeklyMap = {}; // { mondayISO: { weight, chest, waist, hips, updatedAt } }
+
+  // monday of this week (local)
+  function weekMondayISO(dateISO) {
+    const [y, m, d] = dateISO.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    const day = (dt.getDay() + 6) % 7; // Mon=0..Sun=6
+    dt.setDate(dt.getDate() - day);
+    const tz = dt.getTimezoneOffset() * 60000;
+    return new Date(dt.getTime() - tz).toISOString().slice(0, 10);
+  }
+
+  function fmtISO(iso) {
+    const [y, m, d] = iso.split("-");
+    return `${d}.${m}.${y}`;
+  }
+
+  function numTxt(v) {
+    if (v === null || v === undefined) return "—";
+    const s = Number(v).toFixed(1);
+    return s.replace(/\.0$/, "");
+  }
+
+  function deltaCell(curr, prev) {
+    if (curr === null || curr === undefined) return `<span class="delta eq">—</span>`;
+    if (prev === null || prev === undefined) return `<span class="delta eq">—</span>`;
+    const d = Number(curr) - Number(prev);
+    if (!Number.isFinite(d) || d === 0) return `<span class="delta eq">0</span>`;
+    const abs = Math.abs(d).toFixed(1).replace(/\.0$/, "");
+    if (d < 0) return `<span class="delta down">-${abs}</span>`;
+    return `<span class="delta up">+${abs}</span>`;
+  }
+
+  async function loadBodyWeekly() {
+    if (!user) return;
+    bodyWeeklyMap = {};
+    const snap = await getDocs(collection(db, "users", user.uid, "bodyWeekly"));
+    snap.forEach(d => {
+      bodyWeeklyMap[d.id] = d.data() || {};
+    });
+  }
+
+  async function upsertBodyWeekly(dateISO, payload) {
+    if (!user) return;
+    const monday = weekMondayISO(dateISO);
+
+    // не затираем null-ами
+    const cleaned = {};
+    for (const [k, v] of Object.entries(payload)) {
+      if (typeof v === "number") cleaned[k] = v;
+    }
+
+    if (!Object.keys(cleaned).length) {
+      alert("Заполни вес и/или параметры.");
+      return;
+    }
+
+    const prev = bodyWeeklyMap[monday] || {};
+    const next = { ...prev, ...cleaned, updatedAt: Date.now() };
+
+    await setDoc(doc(db, "users", user.uid, "bodyWeekly", monday), next, { merge: true });
+    bodyWeeklyMap[monday] = next;
+  }
+
+  async function clearBodyWeeklyAll() {
+    if (!user) return;
+
+    const ok = confirm("Очистить все записи веса и параметров?");
+    if (!ok) return;
+
+    const col = collection(db, "users", user.uid, "bodyWeekly");
+    const snap = await getDocs(col);
+
+    const batch = writeBatch(db);
+    snap.forEach(d => {
+      batch.delete(doc(db, "users", user.uid, "bodyWeekly", d.id));
+    });
+    await batch.commit();
+
+    bodyWeeklyMap = {};
+  }
+
+  // ---------------------------
+  // Body weekly UI (guarded)
+  // ---------------------------
+  let bodyChart = null;
+  let bodyUIInited = false;
+
+  function renderBodyWeightChart() {
+    const keys = Object.keys(bodyWeeklyMap).sort(); // monday ISO asc
+    const labels = keys.map(k => fmtISO(k));
+    const data = keys.map(k => {
+      const w = bodyWeeklyMap[k]?.weight;
+      return (typeof w === "number") ? w : null;
+    });
+
+    const canvas = el("bodyWeightChart");
+    if (!canvas) return;
+
+    const ChartRef = window.Chart;
+    if (!ChartRef) return;
+
+    const ctx = canvas.getContext("2d");
+    if (bodyChart) bodyChart.destroy();
+
+    bodyChart = new ChartRef(ctx, {
+      type: "line",
+      data: {
+        labels,
+datasets: [{
+  label: "Вес (кг)",
+  data,
+  tension: 0.25,
+  pointRadius: 4,
+  pointHoverRadius: 6,
+  spanGaps: true,
+
+  borderColor: themeLineColor(),
+  pointBackgroundColor: themeLineColor(),
+  pointBorderColor: themeLineColor()
+}]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: "#ffffff" } },
+          tooltip: { enabled: true }
+        },
+        scales: {
+          x: { ticks: { color: "rgba(255,255,255,.70)" }, grid: { color: "rgba(255,255,255,.08)" } },
+          y: { ticks: { color: "rgba(255,255,255,.70)" }, grid: { color: "rgba(255,255,255,.08)" } }
+        }
+      }
+    });
+  }
+
+  function themeLineColor() {
+  const root = document.documentElement;
+  const c = getComputedStyle(root).getPropertyValue("--btn").trim();
+  return c || "#ffffff";
+}
+
+  function renderBodyMeasTable() {
+    const wrap = el("bodyMeasTableWrap");
+    if (!wrap) return;
+
+    const keys = Object.keys(bodyWeeklyMap).sort(); // asc
+    if (!keys.length) {
+      wrap.className = "muted";
+      wrap.textContent = "Пока нет данных.";
+      return;
+    }
+
+    // deltas по времени (asc)
+    const deltaByKey = {};
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      const curr = bodyWeeklyMap[k] || {};
+      const prev = bodyWeeklyMap[keys[i - 1]] || {};
+      deltaByKey[k] = {
+        chest: deltaCell(curr.chest, prev.chest),
+        waist: deltaCell(curr.waist, prev.waist),
+        hips: deltaCell(curr.hips, prev.hips)
+      };
+    }
+
+    wrap.className = "";
+    wrap.innerHTML = `
+      <div class="tableScroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Неделя (пн)</th>
+              <th>Грудь</th><th>Δ</th>
+              <th>Талия</th><th>Δ</th>
+              <th>Бёдра</th><th>Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${keys.slice().reverse().map(k => {
+              const v = bodyWeeklyMap[k] || {};
+              const d = deltaByKey[k] || {};
+              return `
+                <tr>
+                  <td><b>${fmtISO(k)}</b></td>
+                  <td>${numTxt(v.chest)}</td><td>${d.chest || "—"}</td>
+                  <td>${numTxt(v.waist)}</td><td>${d.waist || "—"}</td>
+                  <td>${numTxt(v.hips)}</td><td>${d.hips || "—"}</td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function initBodyUI() {
+    // железная защита: обработчики навешиваются 1 раз за жизнь страницы
+    if (bodyUIInited) return;
+    bodyUIInited = true;
+
+    if (el("bodyDate")) el("bodyDate").value = todayISO();
+
+    el("bodySaveBtn")?.addEventListener("click", async () => {
+      const dateISO = el("bodyDate")?.value || todayISO();
+
+      const payload = {
+        weight: toNumOrNull(el("bodyWeight")?.value),
+        chest: toNumOrNull(el("bodyChest")?.value),
+        waist: toNumOrNull(el("bodyWaist")?.value),
+        hips: toNumOrNull(el("bodyHips")?.value)
+      };
+
+      await upsertBodyWeekly(dateISO, payload);
+
+      if (el("bodyWeight")) el("bodyWeight").value = "";
+      if (el("bodyChest")) el("bodyChest").value = "";
+      if (el("bodyWaist")) el("bodyWaist").value = "";
+      if (el("bodyHips")) el("bodyHips").value = "";
+
+      renderBodyWeightChart();
+      renderBodyMeasTable();
+    });
+
+    el("bodyClearBtn")?.addEventListener("click", async () => {
+      await clearBodyWeeklyAll();
+      renderBodyWeightChart();
+      renderBodyMeasTable();
+    });
   }
 
   // ---------------------------
   // Draft workout (persist unfinished session)
   // ---------------------------
-  function draftKey(){
+  function draftKey() {
     return user ? `wt_draft_${user.uid}` : "wt_draft_anon";
   }
 
-  function saveDraft(){
-    if(!user) return;
-    if(!session || !session.workout) return;
+  function saveDraft() {
+    if (!user) return;
+    if (!session || !session.workout) return;
 
     const payload = {
       v: 1,
@@ -685,142 +986,138 @@
       currentExercise
     };
 
-    try{
+    try {
       localStorage.setItem(draftKey(), JSON.stringify(payload));
-    }catch(e){
+    } catch (e) {
       console.warn("Draft save failed", e);
     }
 
     updateGoStartButton();
   }
 
-  function loadDraft(){
-    if(!user) return null;
-    try{
+  function loadDraft() {
+    if (!user) return null;
+    try {
       const raw = localStorage.getItem(draftKey());
-      if(!raw) return null;
+      if (!raw) return null;
       const parsed = JSON.parse(raw);
-      if(!parsed?.session?.workout) return null;
+      if (!parsed?.session?.workout) return null;
       return parsed;
-    }catch(e){
+    } catch (e) {
       console.warn("Draft load failed", e);
       return null;
     }
   }
 
-  function clearDraft(){
-    if(!user) return;
-    try{ localStorage.removeItem(draftKey()); }catch(e){}
+  function clearDraft() {
+    if (!user) return;
+    try { localStorage.removeItem(draftKey()); } catch (e) { }
     updateGoStartButton();
   }
 
-  function hasDraft(){
+  function hasDraft() {
     const d = loadDraft();
     return !!(d && d.session && d.session.workout);
   }
 
-  function updateGoStartButton(){
+  function updateGoStartButton() {
     const btn = el("goStart");
-    if(!btn) return;
+    if (!btn) return;
     btn.textContent = hasDraft() ? "Продолжить тренировку" : "Начать тренировку";
   }
 
-  function resumeFromDraft(draft){
-    if(!draft?.session?.workout) return;
+  function resumeFromDraft(draft) {
+    if (!draft?.session?.workout) return;
 
     session = draft.session;
     currentWorkout = draft.currentWorkout || session.workout;
     currentExercise = draft.currentExercise || null;
 
-    // Заголовки
     el("wName").textContent = session.workout;
     el("wDate").textContent = fmt(session.date);
 
-    // Pills
     const pills = el("exPills");
     pills.innerHTML = "";
 
     const list = PROGRAM[session.workout] || [];
-    list.forEach((ex)=>{
+    list.forEach((ex) => {
       const b = document.createElement("button");
       b.className = "pill";
       b.textContent = ex.name;
-      b.addEventListener("click", ()=> selectExercise(ex.name));
+      b.addEventListener("click", () => selectExercise(ex.name));
       pills.appendChild(b);
     });
 
-    // Если упражнение не найдено — берём первое
-    if(!currentExercise || !list.some(x => x.name === currentExercise)){
+    if (!currentExercise || !list.some(x => x.name === currentExercise)) {
       currentExercise = list[0]?.name || null;
     }
 
-    // Подсветка активного pill
-    document.querySelectorAll("#exPills .pill").forEach(p=>{
+    document.querySelectorAll("#exPills .pill").forEach(p => {
       p.classList.toggle("active", p.textContent === currentExercise);
     });
 
     renderExercise(true);
     setActiveTabUI("workout");
-
     updateGoStartButton();
   }
 
-  // Автосохранение на закрытие/перезагрузку
-  window.addEventListener("beforeunload", ()=>{
-    if(user && session?.workout) saveDraft();
+  window.addEventListener("beforeunload", () => {
+    if (user && session?.workout) saveDraft();
   });
 
   // ---------------------------
   // Theme
   // ---------------------------
   const savedTheme = localStorage.getItem("wt_theme");
-  if(savedTheme === "pink") document.documentElement.setAttribute("data-theme","pink");
+  if (savedTheme === "pink") document.documentElement.setAttribute("data-theme", "pink");
 
-  el("themeToggle")?.addEventListener("click", ()=>{
-    const isPink = document.documentElement.getAttribute("data-theme")==="pink";
-    if(isPink){
+  el("themeToggle")?.addEventListener("click", () => {
+    const isPink = document.documentElement.getAttribute("data-theme") === "pink";
+    if (isPink) {
       document.documentElement.removeAttribute("data-theme");
-      localStorage.setItem("wt_theme","black");
+      localStorage.setItem("wt_theme", "black");
     } else {
-      document.documentElement.setAttribute("data-theme","pink");
-      localStorage.setItem("wt_theme","pink");
+      document.documentElement.setAttribute("data-theme", "pink");
+      localStorage.setItem("wt_theme", "pink");
     }
+      renderBodyWeightChart(); // обновить цвет линии
+
   });
 
   // ---------------------------
   // Firestore: program
   // ---------------------------
-  async function loadProgramDoc(uid){
+  async function loadProgramDoc(uid) {
     const ref = doc(db, "users", uid, "config", "program");
     const snap = await getDoc(ref);
-    if(!snap.exists()) return null;
+    if (!snap.exists()) return null;
     const data = snap.data();
     return data?.program || null;
   }
 
-  async function saveProgramDoc(uid, programObj){
+  async function saveProgramDoc(uid, programObj) {
     const ref = doc(db, "users", uid, "config", "program");
     await setDoc(ref, {
       program: programObj,
       updatedAt: Date.now(),
       updatedBy: user.uid
-    }); // <-- ВАЖНО: без { merge: true }
+    }); // без merge
   }
 
-  function validateProgramShape(p){
-    if(!p || typeof p !== "object" || Array.isArray(p)) return "Program должен быть объектом";
+  function validateProgramShape(p) {
+    if (!p || typeof p !== "object" || Array.isArray(p)) return "Program должен быть объектом";
 
     const keys = Object.keys(p);
-    if(!keys.length) return "Program пустой";
+    if (!keys.length) return "Program пустой";
 
-    for(const wName of keys){
-      if(!Array.isArray(p[wName])) return `Тренировка "${wName}" должна быть массивом упражнений`;
+    for (const wName of keys) {
+      if (!Array.isArray(p[wName])) return `Тренировка "${wName}" должна быть массивом упражнений`;
 
-      for(const ex of p[wName]){
-        if(!ex || typeof ex !== "object") return `В "${wName}" есть не-объект`;
-        if(!ex.name || !ex.scheme) return `В "${wName}" у упражнения нет name/scheme`;
-        if(!ex.video) ex.video = "https://drive.google.com/";
-        if(!ex.machine) ex.machine = "";
+      for (const ex of p[wName]) {
+        if (!ex || typeof ex !== "object") return `В "${wName}" есть не-объект`;
+        if (!ex.name || !ex.scheme) return `В "${wName}" у упражнения нет name/scheme`;
+        if (!ex.video) ex.video = "https://drive.google.com/";
+        if (!ex.machine) ex.machine = "";
       }
     }
     return null;
@@ -829,47 +1126,48 @@
   // ---------------------------
   // Tabs
   // ---------------------------
-  function setActiveTabUI(tab){
+  const TABS = ["dashboard", "select", "workout", "history", "progress", "admin"];
+
+  function setActiveTabUI(tab) {
     activeTab = tab;
 
     document.querySelectorAll(".tab").forEach(t => {
-      t.classList.toggle("active", t.dataset.tab===tab);
+      t.classList.toggle("active", t.dataset.tab === tab);
     });
 
-    ["dashboard","select","workout","history","progress","admin"].forEach(k=>{
-      const pane = el("tab-"+k);
-      if(pane) pane.style.display = (k===tab) ? "" : "none";
+    TABS.forEach(k => {
+      const pane = el("tab-" + k);
+      if (pane) pane.style.display = (k === tab) ? "" : "none";
     });
+
+    // если вес/параметры размещены на дашборде — перерисуем при заходе
+    if (tab === "dashboard") {
+      renderBodyWeightChart();
+      renderBodyMeasTable();
+    }
   }
 
-  document.querySelectorAll(".tab").forEach(t=>{
-    t.addEventListener("click", ()=>{
+  document.querySelectorAll(".tab").forEach(t => {
+    t.addEventListener("click", () => {
       const tab = t.dataset.tab;
 
-      if(tab==="history"){ setActiveTabUI("history"); renderHistory(); return; }
-      if(tab==="progress"){ setActiveTabUI("progress"); renderProgress(); return; }
-      if(tab==="admin"){
-        if(!isAdminLocal()) return;
+      if (tab === "admin") {
+        if (!isAdminLocal()) return;
         setActiveTabUI("admin");
         return;
       }
-      if(tab==="select"){
-        setActiveTabUI("select");
-        renderWorkoutSelect();
-        return;
-      }
-      if(tab==="dashboard"){
-        setActiveTabUI("dashboard");
-        renderDashboard();
-        return;
-      }
+
+      if (tab === "history") { setActiveTabUI("history"); renderHistory(); return; }
+      if (tab === "progress") { setActiveTabUI("progress"); renderProgress(); return; }
+      if (tab === "select") { setActiveTabUI("select"); renderWorkoutSelect(); return; }
+      if (tab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); return; }
+      if (tab === "workout") { setActiveTabUI("workout"); return; }
     });
   });
 
-  // Главная кнопка: "Начать" / "Продолжить"
-  el("goStart")?.addEventListener("click", ()=>{
+  el("goStart")?.addEventListener("click", () => {
     const d = loadDraft();
-    if(d){
+    if (d) {
       resumeFromDraft(d);
       return;
     }
@@ -877,32 +1175,40 @@
     renderWorkoutSelect();
   });
 
-  el("goHistory")?.addEventListener("click", ()=> { setActiveTabUI("history"); renderHistory(); });
-  el("goProgress")?.addEventListener("click", ()=> { setActiveTabUI("progress"); renderProgress(); });
+  el("goHistory")?.addEventListener("click", () => { setActiveTabUI("history"); renderHistory(); });
+  el("goProgress")?.addEventListener("click", () => { setActiveTabUI("progress"); renderProgress(); });
 
   // ---------------------------
   // Load sessions
   // ---------------------------
-  async function loadHistory(){
-    if(!user) return;
+  async function loadHistory() {
+    if (!user) return;
     const qy = query(collection(db, "users", user.uid, "sessions"), orderBy("date", "desc"));
     const snap = await getDocs(qy);
     history = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   }
 
-  async function deleteSessionById(sessionId){
-    if(!user) return;
+  async function deleteSessionById(sessionId) {
+    if (!user) return;
 
     const ok = confirm("Удалить эту тренировку? Действие нельзя отменить.");
-    if(!ok) return;
+    if (!ok) return;
 
-    try{
+    try {
       await deleteDoc(doc(db, "users", user.uid, "sessions", sessionId));
+
       await loadHistory();
+      await loadBodyWeekly();
+
+      renderWorkoutSelect();
       renderDashboard();
       renderHistory();
       renderProgress();
-    }catch(e){
+
+      // ВАЖНО: initBodyUI НЕ вызываем тут (иначе будут дубли обработчиков)
+      renderBodyWeightChart();
+      renderBodyMeasTable();
+    } catch (e) {
       console.error(e);
       alert("Не удалось удалить тренировку. Проверь доступ/Rules.");
     }
@@ -911,7 +1217,7 @@
   // ---------------------------
   // Workout selection
   // ---------------------------
-  function workoutSubtitle(name){
+  function workoutSubtitle(name) {
     const map = {
       "Спина / Бицепсы": "Спина / бицепсы / плечи",
       "Грудь / Трицепсы": "Грудь / трицепсы / плечи",
@@ -922,13 +1228,13 @@
     return map[name] || "Тренировка";
   }
 
-  function renderWorkoutSelect(){
+  function renderWorkoutSelect() {
     const wrap = el("workoutList");
-    if(!wrap) return;
+    if (!wrap) return;
 
     const names = Object.keys(PROGRAM || {}).filter(Boolean);
 
-    if(!names.length){
+    if (!names.length) {
       wrap.innerHTML = `
         <div class="card">
           <div class="muted">Нет тренировок в программе. Добавь через Админ → Program JSON.</div>
@@ -949,17 +1255,15 @@
       </div>
     `).join("");
 
-    // клик по карточке — старт тренировки
-    wrap.querySelectorAll(".workoutCard").forEach(card=>{
-      card.addEventListener("click", (e)=>{
-        if(e.target && e.target.closest(".workoutDel")) return;
+    wrap.querySelectorAll(".workoutCard").forEach(card => {
+      card.addEventListener("click", (e) => {
+        if (e.target && e.target.closest(".workoutDel")) return;
         startWorkout(card.dataset.workout);
       });
     });
 
-    // клик по кресту — удалить тренировку
-    wrap.querySelectorAll(".workoutDel").forEach(btn=>{
-      btn.addEventListener("click", async (e)=>{
+    wrap.querySelectorAll(".workoutDel").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
         e.preventDefault();
         e.stopPropagation();
         const name = btn.dataset.del;
@@ -968,42 +1272,39 @@
     });
   }
 
-  async function deleteWorkoutFromProgram(workoutName){
-    if(!user) return;
+  async function deleteWorkoutFromProgram(workoutName) {
+    if (!user) return;
 
     const ok = confirm(`Удалить тренировку "${workoutName}" из программы?`);
-    if(!ok) return;
+    if (!ok) return;
 
-    try{
+    try {
       const next = { ...(PROGRAM || {}) };
       delete next[workoutName];
 
       PROGRAM = next;
 
-      // сохраняем ТОЛЬКО в программу текущего пользователя
       await saveProgramDoc(user.uid, PROGRAM);
 
       renderWorkoutSelect();
 
-      // если удалили тренировку, которая сейчас открыта — уходим на выбор
-      if(currentWorkout === workoutName){
+      if (currentWorkout === workoutName) {
         currentWorkout = null;
         currentExercise = null;
-        session = { date: todayISO(), workout:null, items:{} };
+        session = { date: todayISO(), workout: null, items: {} };
         clearDraft();
         setActiveTabUI("select");
         renderWorkoutSelect();
       }
-
-    }catch(err){
+    } catch (err) {
       console.error(err);
       alert("Не удалось удалить тренировку. Проверь Rules/доступ.");
     }
   }
 
-  function startWorkout(w){
+  function startWorkout(w) {
     currentWorkout = w;
-    session = { date: todayISO(), workout:w, items:{} };
+    session = { date: todayISO(), workout: w, items: {} };
 
     el("wName").textContent = w;
     el("wDate").textContent = fmt(session.date);
@@ -1012,11 +1313,11 @@
     pills.innerHTML = "";
 
     const list = PROGRAM[w] || [];
-    list.forEach((ex, i)=>{
+    list.forEach((ex, i) => {
       const b = document.createElement("button");
-      b.className = "pill" + (i===0 ? " active":"");
+      b.className = "pill" + (i === 0 ? " active" : "");
       b.textContent = ex.name;
-      b.addEventListener("click", ()=> selectExercise(ex.name));
+      b.addEventListener("click", () => selectExercise(ex.name));
       pills.appendChild(b);
     });
 
@@ -1024,93 +1325,85 @@
     renderExercise(true);
     setActiveTabUI("workout");
 
-    // NEW: сохраняем черновик сразу при старте
     saveDraft();
   }
 
-  function selectExercise(name){
+  function selectExercise(name) {
     currentExercise = name;
-    document.querySelectorAll("#exPills .pill").forEach(p=>{
-      p.classList.toggle("active", p.textContent===name);
+    document.querySelectorAll("#exPills .pill").forEach(p => {
+      p.classList.toggle("active", p.textContent === name);
     });
     renderExercise(true);
-
-    // NEW: сохраняем выбранное упражнение
     saveDraft();
   }
 
-  function getExObj(){
+  function getExObj() {
     const arr = PROGRAM[currentWorkout] || [];
-    return arr.find(x=>x.name===currentExercise);
+    return arr.find(x => x.name === currentExercise);
   }
 
-  function renderExercise(resetSetNo=false){
+  function isValidVideoUrl(url) {
+    if (!url) return false;
+    const u = String(url).trim();
+    if (!u || u === "-") return false;
+    return /^https?:\/\//i.test(u);
+  }
+
+  function renderExercise(resetSetNo = false) {
     const ex = getExObj();
-    if(!ex){
+    if (!ex) {
       el("exTitle").textContent = "Нет упражнений";
       el("exScheme").textContent = "—";
       el("setsTableWrap").innerHTML = "—";
       return;
     }
 
-    // кнопка "Видео"
     const vBtn = el("videoBtn");
-    if(vBtn){
-      const hasV = isValidVideoUrl(ex.video);
-      vBtn.style.display = hasV ? "" : "none";
-    }
+    if (vBtn) vBtn.style.display = isValidVideoUrl(ex.video) ? "" : "none";
 
     el("exTitle").textContent = ex.name;
     el("exScheme").textContent = ex.scheme;
 
-    // кнопка "Тренажёр"
     const mBtn = el("machineBtn");
-    if(mBtn){
+    if (mBtn) {
       const has = !!(ex.machine && String(ex.machine).trim());
       mBtn.style.display = has ? "" : "none";
     }
 
-    if(resetSetNo){
+    if (resetSetNo) {
       const sets = session.items[ex.name] || [];
-      const next = sets.length ? (Math.max(...sets.map(s=>Number(s.setNo||0))) + 1) : 1;
+      const next = sets.length ? (Math.max(...sets.map(s => Number(s.setNo || 0))) + 1) : 1;
       el("setNo").value = next;
     }
 
     renderSetsTable();
   }
 
-  function isValidVideoUrl(url){
-    if(!url) return false;
-    const u = String(url).trim();
-    if(!u || u === "-" ) return false;
-    return /^https?:\/\//i.test(u);
-  }
-
-  function openVideoModal(url){
+  // ---------------------------
+  // Video modal
+  // ---------------------------
+  function openVideoModal(url) {
     const modal = el("videoModal");
     const vid = el("videoPlayer");
     const err = el("videoErr");
-
-    if(!modal || !vid || !err) return;
+    if (!modal || !vid || !err) return;
 
     err.style.display = "none";
-
     vid.pause();
     vid.removeAttribute("src");
     vid.load();
 
     vid.src = url;
-
     vid.onloadeddata = () => { err.style.display = "none"; };
     vid.onerror = () => { err.style.display = ""; };
 
     modal.style.display = "";
   }
 
-  function closeVideoModal(){
+  function closeVideoModal() {
     const modal = el("videoModal");
     const vid = el("videoPlayer");
-    if(!modal || !vid) return;
+    if (!modal || !vid) return;
 
     modal.style.display = "none";
     vid.pause();
@@ -1118,22 +1411,23 @@
     vid.load();
   }
 
-  el("videoBtn")?.addEventListener("click", ()=>{
+  el("videoBtn")?.addEventListener("click", () => {
     const ex = getExObj();
     const url = ex?.video ? String(ex.video).trim() : "";
-    if(!isValidVideoUrl(url)) return;
+    if (!isValidVideoUrl(url)) return;
     openVideoModal(url);
   });
-
   el("videoClose")?.addEventListener("click", closeVideoModal);
   el("videoBackdrop")?.addEventListener("click", closeVideoModal);
 
-  function openMachineModal(url){
+  // ---------------------------
+  // Machine modal
+  // ---------------------------
+  function openMachineModal(url) {
     const modal = el("machineModal");
     const img = el("machineImg");
     const err = el("machineErr");
-
-    if(!modal || !img || !err) return;
+    if (!modal || !img || !err) return;
 
     err.style.display = "none";
     img.onload = () => { err.style.display = "none"; };
@@ -1143,66 +1437,64 @@
     modal.style.display = "";
   }
 
-  function closeMachineModal(){
+  function closeMachineModal() {
     const modal = el("machineModal");
     const img = el("machineImg");
-    if(!modal || !img) return;
+    if (!modal || !img) return;
+
     modal.style.display = "none";
     img.src = "";
   }
 
-  el("machineBtn")?.addEventListener("click", ()=>{
+  el("machineBtn")?.addEventListener("click", () => {
     const ex = getExObj();
     const url = ex?.machine ? String(ex.machine).trim() : "";
-    if(!url) return;
+    if (!url) return;
     openMachineModal(url);
   });
-
   el("machineClose")?.addEventListener("click", closeMachineModal);
   el("machineBackdrop")?.addEventListener("click", closeMachineModal);
 
-  // ESC закрывает модалки
-  window.addEventListener("keydown", (e)=>{
-    if(e.key === "Escape"){
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
       closeVideoModal();
       closeMachineModal();
     }
   });
 
   // ---------------------------
-  // Save set (in session)
+  // Sets: add/edit/delete (как в демо)
   // ---------------------------
-  el("saveSet")?.addEventListener("click", ()=>{
+  el("saveSet")?.addEventListener("click", () => {
     const ex = getExObj();
-    if(!ex) return;
+    if (!ex) return;
 
     const setNo = Number(el("setNo").value || 1);
     const weight = Number(el("weight").value || 0);
     const reps = Number(el("reps").value || 0);
 
-    if(!session.items[ex.name]) session.items[ex.name] = [];
-    session.items[ex.name].push({setNo, weight, reps});
+    if (!session.items[ex.name]) session.items[ex.name] = [];
+    session.items[ex.name].push({ setNo, weight, reps });
 
     el("setNo").value = setNo + 1;
 
     renderSetsTable();
-
-    // NEW: сохраняем незавершённую тренировку
     saveDraft();
   });
 
-  function renderSetsTable(){
+  function renderSetsTable() {
     const ex = getExObj();
-    if(!ex){
-      el("setsTableWrap").innerHTML = `<div class="muted">—</div>`;
+    const wrap = el("setsTableWrap");
+    if (!wrap) return;
+
+    if (!ex) {
+      wrap.innerHTML = `<div class="muted">—</div>`;
       return;
     }
 
     const sets = session.items[ex.name] || [];
-    const wrap = el("setsTableWrap");
-    if(!wrap) return;
 
-    if(!sets.length){
+    if (!sets.length) {
       wrap.className = "muted";
       wrap.innerHTML = "Пока нет подходов.";
       return;
@@ -1213,29 +1505,73 @@
       <table>
         <thead>
           <tr>
-            <th>№</th><th>Вес</th><th>Повт.</th>
+            <th>№</th><th>Вес</th><th>Повт.</th><th>Действия</th>
           </tr>
         </thead>
         <tbody>
-          ${sets.map(s=>`
-            <tr>
+          ${sets.map((s, idx) => `
+            <tr data-idx="${idx}">
               <td>${s.setNo}</td>
               <td>${s.weight} кг</td>
               <td>${s.reps}</td>
+              <td>
+                <button class="btn secondary" data-act="edit" style="width:auto;padding:8px 10px;border-radius:12px;font-size:12px">Ред.</button>
+                <button class="btn secondary" data-act="del" style="width:auto;padding:8px 10px;border-radius:12px;font-size:12px;border-color:rgba(255,107,107,.45);color:var(--danger)">Удалить</button>
+              </td>
             </tr>
           `).join("")}
         </tbody>
       </table>
     `;
+
+    wrap.querySelectorAll("button").forEach(btn => {
+      const tr = btn.closest("tr");
+      const idx = Number(tr.dataset.idx);
+      const act = btn.dataset.act;
+
+      btn.addEventListener("click", () => {
+        const ex = getExObj();
+        if (!ex) return;
+
+        const sets = session.items[ex.name] || [];
+        const src = sets[idx];
+        if (!src) return;
+
+        if (act === "del") {
+          sets.splice(idx, 1);
+          session.items[ex.name] = sets;
+          renderSetsTable();
+
+          const next = sets.length ? (Math.max(...sets.map(s => Number(s.setNo || 0))) + 1) : 1;
+          el("setNo").value = next;
+
+          saveDraft();
+          return;
+        }
+
+        if (act === "edit") {
+          el("setNo").value = src.setNo;
+          el("weight").value = src.weight;
+          el("reps").value = src.reps;
+
+          sets.splice(idx, 1);
+          session.items[ex.name] = sets;
+          renderSetsTable();
+
+          saveDraft();
+          return;
+        }
+      });
+    });
   }
 
   // ---------------------------
   // Finish workout -> save to Firestore
   // ---------------------------
-  el("finishBtn")?.addEventListener("click", async ()=>{
-    if(!user || !session.workout) { setActiveTabUI("dashboard"); return; }
+  el("finishBtn")?.addEventListener("click", async () => {
+    if (!user || !session.workout) { setActiveTabUI("dashboard"); return; }
 
-    const items = Object.entries(session.items).map(([ex, sets])=>({ ex, sets }));
+    const items = Object.entries(session.items).map(([ex, sets]) => ({ ex, sets }));
     const payload = {
       date: session.date,
       month: monthKey(session.date),
@@ -1244,23 +1580,21 @@
       createdAt: Date.now()
     };
 
-    try{
+    try {
       await addDoc(collection(db, "users", user.uid, "sessions"), payload);
 
-      // NEW: чистим черновик только после успешного сохранения
       clearDraft();
 
-      // сброс текущей тренировки
       currentWorkout = null;
       currentExercise = null;
-      session = { date: todayISO(), workout:null, items:{} };
+      session = { date: todayISO(), workout: null, items: {} };
 
       await loadHistory();
       renderDashboard();
       renderHistory();
       renderProgress();
       setActiveTabUI("dashboard");
-    }catch(e){
+    } catch (e) {
       console.error(e);
       alert("Не удалось сохранить. Проверь Rules/доступ.");
     }
@@ -1269,80 +1603,83 @@
   // ---------------------------
   // Dashboard: 3 workouts per week
   // ---------------------------
-  function weekRangeISO(){
+  function weekRangeISO() {
     const now = new Date();
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const day = (d.getDay() + 6) % 7; // Monday=0..6
     const monday = new Date(d); monday.setDate(d.getDate() - day);
     const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
 
-    const toISO = (x)=>{
-      const tz = x.getTimezoneOffset()*60000;
-      return new Date(x.getTime()-tz).toISOString().slice(0,10);
+    const toISO = (x) => {
+      const tz = x.getTimezoneOffset() * 60000;
+      return new Date(x.getTime() - tz).toISOString().slice(0, 10);
     };
     return { start: toISO(monday), end: toISO(sunday) };
   }
 
-  function renderDashboard(){
+  function renderDashboard() {
     const todayEl = el("today");
-    if(todayEl) todayEl.textContent = "Сегодня: " + fmt(todayISO());
+    if (todayEl) todayEl.textContent = "Сегодня: " + fmt(todayISO());
 
     const GOAL_PER_WEEK = 3;
     const { start, end } = weekRangeISO();
     const count = history.filter(h => h.date >= start && h.date <= end).length;
 
     const stat = el("monthStat");
-    if(stat) stat.textContent = `${count} / ${GOAL_PER_WEEK} тренировок`;
+    if (stat) stat.textContent = `${count} / ${GOAL_PER_WEEK} тренировок`;
 
     const pct = Math.min(100, Math.round((count / GOAL_PER_WEEK) * 100));
     const bar = el("monthBar");
-    if(bar) bar.style.width = pct + "%";
+    if (bar) bar.style.width = pct + "%";
 
     const last = history[0];
     const lastWrap = el("lastWorkout");
-    if(lastWrap){
-      if(!last){
+    if (lastWrap) {
+      if (!last) {
         lastWrap.textContent = "Пока нет записей.";
       } else {
         lastWrap.innerHTML = `
           <div style="font-weight:900">${last.workout}</div>
-          <div class="muted">${fmt(last.date)} • Упражнений: ${(last.items||[]).length}</div>
+          <div class="muted">${fmt(last.date)} • Упражнений: ${(last.items || []).length}</div>
         `;
       }
     }
 
-    // NEW: меняем текст кнопки на главной
     updateGoStartButton();
+
+    // если блок веса/параметров на главной — держим в актуале
+    renderBodyWeightChart();
+    renderBodyMeasTable();
   }
 
   // ---------------------------
   // History + export
   // ---------------------------
-  function renderMonthSelect(){
-    const months = Array.from(new Set(history.map(h=>h.month))).sort().reverse();
+  function renderMonthSelect() {
+    const months = Array.from(new Set(history.map(h => h.month))).sort().reverse();
     const sel = el("monthSelect");
-    if(!sel) return;
+    if (!sel) return;
 
-    sel.innerHTML = months.map(m=>`<option value="${m}">${monthTitle(m)}</option>`).join("");
-    if(!months.length){
+    sel.innerHTML = months.map(m => `<option value="${m}">${monthTitle(m)}</option>`).join("");
+    if (!months.length) {
       sel.innerHTML = `<option value="">Нет данных</option>`;
     }
   }
 
-  function renderHistory(){
+  function renderHistory() {
     renderMonthSelect();
 
     const list = el("historyList");
-    if(!list) return;
+    if (!list) return;
 
-    if(!history.length){
+    if (!history.length) {
       list.innerHTML = `<div class="card"><div class="muted">Пока нет записей.</div></div>`;
       return;
     }
 
-    list.innerHTML = history.slice(0,10).map(t=>{
-      const body = (t.items || []).map(it=>{
-        const line = (it.sets || []).map(s=>`${s.setNo}: ${s.weight}кг×${s.reps}`).join(" • ");
+    list.innerHTML = history.slice(0, 10).map(t => {
+      const body = (t.items || []).map(it => {
+        const line = (it.sets || []).map(s => `${s.setNo}: ${s.weight}кг×${s.reps}`).join(" • ");
         return `<div style="margin-top:10px">
           <div style="font-weight:900;font-size:13px">${it.ex}</div>
           <div class="muted" style="margin-top:2px">${line || "—"}</div>
@@ -1367,40 +1704,40 @@
       `;
     }).join("");
 
-    list.querySelectorAll(".delSessionBtn").forEach(btn=>{
-      btn.addEventListener("click", (e)=>{
+    list.querySelectorAll(".delSessionBtn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
         deleteSessionById(e.currentTarget.dataset.id);
       });
     });
   }
 
-  function buildCsvForMonth(ym){
-    const rows = [["date","month","workout","exercise","setNo","weight","reps"]];
+  function buildCsvForMonth(ym) {
+    const rows = [["date", "month", "workout", "exercise", "setNo", "weight", "reps"]];
     history
-      .filter(h=>h.month===ym)
-      .forEach(h=>{
-        (h.items||[]).forEach(it=>{
-          (it.sets||[]).forEach(s=>{
-            rows.push([ h.date, h.month, h.workout, it.ex, s.setNo, s.weight, s.reps ]);
+      .filter(h => h.month === ym)
+      .forEach(h => {
+        (h.items || []).forEach(it => {
+          (it.sets || []).forEach(s => {
+            rows.push([h.date, h.month, h.workout, it.ex, s.setNo, s.weight, s.reps]);
           });
         });
       });
 
-    return rows.map(r=>r.map(csvEscape).join(",")).join("\n");
+    return rows.map(r => r.map(csvEscape).join(",")).join("\n");
   }
 
-  el("exportMonth")?.addEventListener("click", ()=>{
+  el("exportMonth")?.addEventListener("click", () => {
     const sel = el("monthSelect");
     const ym = sel ? sel.value : "";
-    if(!ym) return alert("Нет данных.");
+    if (!ym) return alert("Нет данных.");
     const csv = buildCsvForMonth(ym);
     downloadText(`workouts_${ym}.csv`, csv);
   });
 
-  el("exportAllMonths")?.addEventListener("click", ()=>{
-    const months = Array.from(new Set(history.map(h=>h.month))).sort();
-    if(!months.length) return alert("Нет данных.");
-    months.forEach(ym=>{
+  el("exportAllMonths")?.addEventListener("click", () => {
+    const months = Array.from(new Set(history.map(h => h.month))).sort();
+    if (!months.length) return alert("Нет данных.");
+    months.forEach(ym => {
       const csv = buildCsvForMonth(ym);
       downloadText(`workouts_${ym}.csv`, csv);
     });
@@ -1409,24 +1746,24 @@
   // ---------------------------
   // Progress: last vs prev
   // ---------------------------
-  function buildProgressLastVsPrev(){
+  function buildProgressLastVsPrev() {
     const logs = [];
-    for(const h of history){
-      for(const it of (h.items||[])){
-        const best = Math.max(...(it.sets||[]).map(s => Number(s.weight||0)), 0);
+    for (const h of history) {
+      for (const it of (h.items || [])) {
+        const best = Math.max(...(it.sets || []).map(s => Number(s.weight || 0)), 0);
         logs.push({ ex: it.ex, date: h.date, best });
       }
     }
 
     const byEx = new Map();
-    for(const r of logs){
-      if(!byEx.has(r.ex)) byEx.set(r.ex, []);
+    for (const r of logs) {
+      if (!byEx.has(r.ex)) byEx.set(r.ex, []);
       byEx.get(r.ex).push(r);
     }
 
     const rows = [];
-    for(const [ex, arr] of byEx.entries()){
-      arr.sort((a,b)=> b.date.localeCompare(a.date));
+    for (const [ex, arr] of byEx.entries()) {
+      arr.sort((a, b) => b.date.localeCompare(a.date));
       const last = arr[0];
       const prev = arr[1];
 
@@ -1437,16 +1774,16 @@
       rows.push({ ex, lastW, prevW, delta });
     }
 
-    rows.sort((a,b)=> (b.delta - a.delta) || (b.lastW - a.lastW));
+    rows.sort((a, b) => (b.delta - a.delta) || (b.lastW - a.lastW));
     return rows;
   }
 
-  function renderProgress(){
+  function renderProgress() {
     const rows = buildProgressLastVsPrev();
     const wrap = el("progressTableWrap");
-    if(!wrap) return;
+    if (!wrap) return;
 
-    if(!rows.length){
+    if (!rows.length) {
       wrap.innerHTML = `<div class="muted">Недостаточно данных.</div>`;
       return;
     }
@@ -1463,7 +1800,7 @@
             </tr>
           </thead>
           <tbody>
-            ${rows.map(r=>{
+            ${rows.map(r => {
               const cls = r.delta >= 0 ? "deltaPlus" : "deltaMinus";
               const sign = r.delta >= 0 ? "+" : "";
               const prevTxt = r.prevW ? `${r.prevW} кг` : "—";
@@ -1485,16 +1822,16 @@
   // ---------------------------
   // Admin
   // ---------------------------
-  el("adminLoadBtn")?.addEventListener("click", async ()=>{
-    if(!isAdminLocal()) return adminMsg("Нет доступа", true);
+  el("adminLoadBtn")?.addEventListener("click", async () => {
+    if (!isAdminLocal()) return adminMsg("Нет доступа", true);
 
     const sel = el("adminUserSelect");
     const targetUid = sel ? sel.value : "";
     const program = await loadProgramDoc(targetUid);
 
-    if(!program){
+    if (!program) {
       const ta = el("adminProgramJson");
-      if(ta) ta.value = "";
+      if (ta) ta.value = "";
       return adminMsg("У пользователя нет сохранённой программы. Нажми «Скопировать дефолт» и «Сохранить».");
     }
 
@@ -1502,46 +1839,45 @@
     adminMsg("Загружено.");
   });
 
-  el("adminCopyDefaultBtn")?.addEventListener("click", ()=>{
-    if(!isAdminLocal()) return adminMsg("Нет доступа", true);
+  el("adminCopyDefaultBtn")?.addEventListener("click", () => {
+    if (!isAdminLocal()) return adminMsg("Нет доступа", true);
     el("adminProgramJson").value = JSON.stringify(DEFAULT_PROGRAM, null, 2);
     adminMsg("Дефолт вставлен. Правь JSON и жми «Сохранить».");
   });
 
-  el("adminSaveBtn")?.addEventListener("click", async ()=>{
-    if(!isAdminLocal()) return adminMsg("Нет доступа", true);
+  el("adminSaveBtn")?.addEventListener("click", async () => {
+    if (!isAdminLocal()) return adminMsg("Нет доступа", true);
 
     const targetUid = el("adminUserSelect").value;
     const raw = el("adminProgramJson").value.trim();
-    if(!raw) return adminMsg("Пустой JSON", true);
+    if (!raw) return adminMsg("Пустой JSON", true);
 
     let programObj;
-    try{
+    try {
       programObj = JSON.parse(raw);
-    }catch(e){
+    } catch (e) {
       return adminMsg("JSON не парсится. Проверь запятые/кавычки.", true);
     }
 
     const err = validateProgramShape(programObj);
-    if(err) return adminMsg(err, true);
+    if (err) return adminMsg(err, true);
 
-    try{
+    try {
       await saveProgramDoc(targetUid, programObj);
       adminMsg("Сохранено в Firestore.");
 
-      if(user && targetUid === user.uid){
+      if (user && targetUid === user.uid) {
         PROGRAM = programObj;
       }
       renderWorkoutSelect();
-
-    }catch(e){
+    } catch (e) {
       console.error(e);
       adminMsg("Не удалось сохранить (проверь Rules).", true);
     }
   });
 
   // ---------------------------
-  // Auth: autologin
+  // Auth: autologin (правильный порядок + body init 1 раз)
   // ---------------------------
   await setPersistence(auth, browserLocalPersistence);
 
@@ -1562,19 +1898,29 @@
 
     user = u;
 
+    // program
     let loaded = await loadProgramDoc(user.uid);
-    if(!loaded){
+    if (!loaded) {
       await saveProgramDoc(user.uid, DEFAULT_PROGRAM);
       loaded = DEFAULT_PROGRAM;
     }
     PROGRAM = loaded;
 
+    // profile
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
     profile = snap.exists() ? snap.data() : { nick: "—" };
 
+    // history
     await loadHistory();
 
+    // body weekly + init UI (guard)
+    await loadBodyWeekly();
+    initBodyUI();
+    renderBodyWeightChart();
+    renderBodyMeasTable();
+
+    // UI
     el("profileName").textContent = profile.nick || "—";
     setSub(profile.nick || "—");
 
@@ -1589,51 +1935,50 @@
     renderHistory();
     renderProgress();
 
-    // NEW: после логина обновляем кнопку "Начать/Продолжить"
     updateGoStartButton();
   });
 
   // ---------------------------
-  // Login / Logout кнопки
+  // Login / Logout
   // ---------------------------
-  el("loginBtn")?.addEventListener("click", async ()=>{
+  el("loginBtn")?.addEventListener("click", async () => {
     const nick = (el("nick")?.value || "").trim().toLowerCase();
     const pass = (el("pass")?.value || "").trim();
 
-    const hint = el("loginHint"); // может отсутствовать (у тебя закомментирован)
-    const showHint = (html)=>{
-      if(!hint) return;
+    const hint = el("loginHint"); // может отсутствовать
+    const showHint = (html) => {
+      if (!hint) return;
       hint.style.display = "";
       hint.innerHTML = html;
     };
 
-    if(!nick || !pass){
+    if (!nick || !pass) {
       showHint(`<b>Ошибка:</b> Заполни никнейм и пароль.`);
       return;
     }
 
     const email = NICK_TO_EMAIL[nick];
-    if(!email){
+    if (!email) {
       showHint(`<b>Ошибка:</b> Нет доступа.`);
       return;
     }
 
-    try{
+    try {
       await signInWithEmailAndPassword(auth, email, pass);
-    }catch(e){
+    } catch (e) {
       showHint(`<b>Ошибка:</b> Неверный никнейм или пароль.`);
       console.error(e);
     }
   });
 
-  el("logoutBtn")?.addEventListener("click", async ()=>{
+  el("logoutBtn")?.addEventListener("click", async () => {
     await signOut(auth);
 
-    if(el("nick")) el("nick").value = "";
-    if(el("pass")) el("pass").value = "";
+    if (el("nick")) el("nick").value = "";
+    if (el("pass")) el("pass").value = "";
 
     const hint = el("loginHint");
-    if(hint){
+    if (hint) {
       hint.style.display = "none";
       hint.innerHTML = "";
     }
