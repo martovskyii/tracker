@@ -619,6 +619,19 @@ input[type="date"]{
 
 
 
+.dateBtn{
+  width:100%;
+  padding:12px 12px;
+  border-radius:14px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--text);
+  font-size:16px;
+  text-align:left;
+}
+
+
+
 
 </style>
 </head>
@@ -728,8 +741,10 @@ input[type="date"]{
 
     <div class="row" style="margin-top:10px">
       <div>
-        <label>Дата</label>
-        <input id="bodyDate" type="date" />
+<label>Дата</label>
+
+<button type="button" class="dateBtn" id="bodyDateBtn">—</button>
+<input id="bodyDate" type="date" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;" />
       </div>
       <div>
         <label>Вес (кг)</label>
@@ -1415,6 +1430,28 @@ async function deleteBodyWeeklyByMonday(dateISO) {
     bodyUIInited = true;
 
     if (el("bodyDate")) el("bodyDate").value = todayISO();
+
+      // --- FIX iOS date: кнопка вместо большого input ---
+  function updateBodyDateBtn(){
+    const d = el("bodyDate")?.value || todayISO();
+    const b = el("bodyDateBtn");
+    if (b) b.textContent = fmtISO(d);
+  }
+
+  updateBodyDateBtn();
+
+  el("bodyDateBtn")?.addEventListener("click", () => {
+    const inp = el("bodyDate");
+    if (!inp) return;
+
+    // iOS / Safari
+    if (inp.showPicker) inp.showPicker();
+    else inp.focus();
+  });
+
+  el("bodyDate")?.addEventListener("change", () => {
+    updateBodyDateBtn();
+  });
 
     el("bodySaveBtn")?.addEventListener("click", async () => {
       const dateISO = el("bodyDate")?.value || todayISO();
