@@ -516,6 +516,110 @@ input[type="date"]{
 }
 
 
+
+/* ---------- Progress (vertical, no horizontal scroll) ---------- */
+.pList{ display:grid; gap:10px; margin-top:0; }
+.pItem{
+  border:1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.12);
+  border-radius:20px;
+  padding:12px;
+}
+[data-theme="pink"] .pItem{
+  border-color: rgba(255,255,255,.12);
+  background: rgba(0,0,0,.10);
+}
+
+.pTitle{
+  font-weight:900;
+  font-size:14px;
+  line-height:1.25;
+  margin:0;
+  word-break:break-word;
+}
+
+.pGrid{
+  margin-top:10px;
+  display:grid;
+  grid-template-columns:1fr;
+  gap:8px;
+}
+
+.pRow{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:10px;
+  padding:9px 10px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:14px;
+  background: rgba(255,255,255,.04);
+}
+[data-theme="pink"] .pRow{
+  border-color: rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+}
+
+.pLbl{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.15px;
+}
+
+.pVal{
+  font-weight:900;
+  font-size:13px;
+  white-space:nowrap;
+}
+
+
+/* ---------- Body measurements (vertical blocks) ---------- */
+.vtable{ display:grid; gap:12px; margin-top:10px; }
+
+.vrow{
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:18px;
+  padding:12px;
+  background: rgba(0,0,0,.18);
+}
+[data-theme="pink"] .vrow{
+  border-color: rgba(255,255,255,.12);
+  background: rgba(0,0,0,.14);
+}
+
+.vdate{
+  font-weight:900;
+  font-size:14px;
+}
+
+.vgrid{
+  margin-top:10px;
+  display:grid;
+  gap:8px;
+}
+
+.vitem{
+  display:grid;
+  grid-template-columns: 1fr auto auto;
+  gap:8px;
+  align-items:center;
+  padding:8px 10px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+}
+[data-theme="pink"] .vitem{
+  border-color: rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+}
+
+.vlabel{ color:var(--muted); font-size:13px; }
+.vvalue{ font-weight:900; font-size:13px; white-space:nowrap; }
+
+
+
+
 </style>
 </head>
 
@@ -1225,72 +1329,86 @@ async function deleteBodyWeeklyByMonday(dateISO) {
   }
 
   function renderBodyMeasTable() {
-    const wrap = el("bodyMeasTableWrap");
-    if (!wrap) return;
+  const wrap = el("bodyMeasTableWrap");
+  if (!wrap) return;
 
-    const keys = Object.keys(bodyWeeklyMap).sort(); // asc
-    if (!keys.length) {
-      wrap.className = "muted";
-      wrap.textContent = "Пока нет данных.";
-      return;
-    }
-
-    // deltas по времени (asc)
-    const deltaByKey = {};
-    for (let i = 0; i < keys.length; i++) {
-      const k = keys[i];
-      const curr = bodyWeeklyMap[k] || {};
-      const prev = bodyWeeklyMap[keys[i - 1]] || {};
-deltaByKey[k] = {
-  chest:  deltaCell(curr.chest,  prev.chest),
-  biceps: deltaCell(curr.biceps, prev.biceps),
-  waist:  deltaCell(curr.waist,  prev.waist),
-  hips:   deltaCell(curr.hips,   prev.hips)
-};
-    }
-
-    wrap.className = "";
-    wrap.innerHTML = `
-      <div class="tableScroll">
-        <table>
-<thead>
-  <tr>
-    <th>Дата</th>
-    <th>Грудь</th><th>Δ</th>
-    <th>Бицепс</th><th>Δ</th>
-    <th>Талия</th><th>Δ</th>
-    <th>Бёдра</th><th>Δ</th>
-    <th>Действия</th>
-  </tr>
-</thead>
-          <tbody>
-            ${keys.slice().reverse().map(k => {
-              const v = bodyWeeklyMap[k] || {};
-              const d = deltaByKey[k] || {};
-              return `
-                <tr data-week="${k}">
-                 <td><b>${fmtISO(k)}</b></td>
-
-<td>${numTxt(v.chest)}</td><td>${d.chest || "—"}</td>
-<td>${numTxt(v.biceps)}</td><td>${d.biceps || "—"}</td>
-<td>${numTxt(v.waist)}</td><td>${d.waist || "—"}</td>
-<td>${numTxt(v.hips)}</td><td>${d.hips || "—"}</td>
-
-<td>
-  <button class="btn secondary" data-act="delBodyDate"
-    style="width:auto;padding:8px 10px;border-radius:12px;font-size:12px;border-color:rgba(255,107,107,.45);color:var(--danger)">
-    Удалить
-  </button>
-</td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
+  const keys = Object.keys(bodyWeeklyMap).sort(); // asc
+  if (!keys.length) {
+    wrap.className = "muted";
+    wrap.textContent = "Пока нет данных.";
+    return;
   }
 
+  const deltaByKey = {};
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    const curr = bodyWeeklyMap[k] || {};
+    const prev = bodyWeeklyMap[keys[i - 1]] || {};
+
+    deltaByKey[k] = {
+      weight: deltaCell(curr.weight, prev.weight),
+      chest:  deltaCell(curr.chest,  prev.chest),
+      biceps: deltaCell(curr.biceps, prev.biceps),
+      waist:  deltaCell(curr.waist,  prev.waist),
+      hips:   deltaCell(curr.hips,   prev.hips)
+    };
+  }
+
+  const showKeys = keys.slice().reverse().slice(0, 3);
+
+  wrap.className = "";
+  wrap.innerHTML = `
+    <div class="vtable">
+      ${showKeys.map(k => {
+        const v = bodyWeeklyMap[k] || {};
+        const d = deltaByKey[k] || {};
+        return `
+          <div class="vrow" data-week="${k}">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+              <div class="vdate">${fmtISO(k)}</div>
+              <button type="button" class="btn secondary" data-act="delBodyDate"
+                style="width:auto;padding:8px 10px;border-radius:12px;font-size:12px;border-color:rgba(255,107,107,.45);color:var(--danger)">
+                Удалить
+              </button>
+            </div>
+
+            <div class="vgrid">
+              <div class="vitem">
+                <div class="vlabel">Вес</div>
+                <div class="vvalue">${numTxt(v.weight)} кг</div>
+                <div>${d.weight || `<span class="delta eq">—</span>`}</div>
+              </div>
+
+              <div class="vitem">
+                <div class="vlabel">Грудь</div>
+                <div class="vvalue">${numTxt(v.chest)}</div>
+                <div>${d.chest || `<span class="delta eq">—</span>`}</div>
+              </div>
+
+              <div class="vitem">
+                <div class="vlabel">Бицепс</div>
+                <div class="vvalue">${numTxt(v.biceps)}</div>
+                <div>${d.biceps || `<span class="delta eq">—</span>`}</div>
+              </div>
+
+              <div class="vitem">
+                <div class="vlabel">Талия</div>
+                <div class="vvalue">${numTxt(v.waist)}</div>
+                <div>${d.waist || `<span class="delta eq">—</span>`}</div>
+              </div>
+
+              <div class="vitem">
+                <div class="vlabel">Бёдра</div>
+                <div class="vvalue">${numTxt(v.hips)}</div>
+                <div>${d.hips || `<span class="delta eq">—</span>`}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
   function initBodyUI() {
     // железная защита: обработчики навешиваются 1 раз за жизнь страницы
     if (bodyUIInited) return;
@@ -1332,8 +1450,10 @@ el("bodyMeasTableWrap")?.addEventListener("click", async (e) => {
   const btn = e.target?.closest?.('button[data-act="delBodyDate"]');
   if (!btn) return;
 
-  const tr = btn.closest("tr");
-  const dateISO = tr?.dataset?.week; // dataset у тебя "data-week", можно не переименовывать
+  // ✅ работает для твоих <div class="vrow" data-week="...">
+  // и на будущее подойдёт и для <tr data-week="...">
+  const row = btn.closest("[data-week]");
+  const dateISO = row?.dataset?.week;
   if (!dateISO) return;
 
   await deleteBodyWeeklyByMonday(dateISO);
@@ -1615,34 +1735,20 @@ el("bodyMeasTableWrap")?.addEventListener("click", async (e) => {
       `;
       return;
     }
-
-    wrap.innerHTML = names.map(name => `
-      <div class="workoutCard" data-workout="${name}">
-        <div class="workoutHead">
-          <div class="workoutMeta">
-            <h3>${name}</h3>
-            <div class="muted">${workoutSubtitle(name)}</div>
-          </div>
-          <button class="workoutDel" type="button" title="Удалить тренировку" data-del="${name}">✕</button>
-        </div>
+wrap.innerHTML = names.map(name => `
+  <div class="workoutCard" data-workout="${name}">
+    <div class="workoutHead">
+      <div class="workoutMeta">
+        <h3>${name}</h3>
+        <div class="muted">${workoutSubtitle(name)}</div>
       </div>
-    `).join("");
+    </div>
+  </div>
+`).join("");
+wrap.querySelectorAll(".workoutCard").forEach(card => {
+  card.addEventListener("click", () => startWorkout(card.dataset.workout));
+});
 
-    wrap.querySelectorAll(".workoutCard").forEach(card => {
-      card.addEventListener("click", (e) => {
-        if (e.target && e.target.closest(".workoutDel")) return;
-        startWorkout(card.dataset.workout);
-      });
-    });
-
-    wrap.querySelectorAll(".workoutDel").forEach(btn => {
-      btn.addEventListener("click", async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const name = btn.dataset.del;
-        await deleteWorkoutFromProgram(name);
-      });
-    });
   }
 
   async function deleteWorkoutFromProgram(workoutName) {
@@ -2237,46 +2343,66 @@ el("saveSet")?.addEventListener("click", () => {
     return rows;
   }
 
-  function renderProgress() {
-    const rows = buildProgressLastVsPrev();
-    const wrap = el("progressTableWrap");
-    if (!wrap) return;
+  function escapeHtml(s){
+  return String(s ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
 
-    if (!rows.length) {
-      wrap.innerHTML = `<div class="muted">Недостаточно данных.</div>`;
-      return;
+function renderProgress() {
+  const rows = buildProgressLastVsPrev();
+  const wrap = el("progressTableWrap");
+  if (!wrap) return;
+
+  if (!rows.length) {
+    wrap.innerHTML = `<div class="muted">Недостаточно данных.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = `<div class="pList" id="pList"></div>`;
+  const list = el("pList");
+
+  list.innerHTML = rows.map(r => {
+    const hasPrev = !!r.prevW;
+
+    const lastTxt = r.lastW ? `${r.lastW} кг` : "—";
+    const prevTxt = hasPrev ? `${r.prevW} кг` : "—";
+
+    let deltaHtml = `<span class="deltaEq">—</span>`;
+    if (hasPrev) {
+      if (r.delta > 0) deltaHtml = `<span class="deltaPlus">+${r.delta} кг</span>`;
+      else if (r.delta < 0) deltaHtml = `<span class="deltaMinus">${r.delta} кг</span>`;
+      else deltaHtml = `<span class="deltaEq">0 кг</span>`;
     }
 
-    wrap.innerHTML = `
-      <div class="tableScroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Упражнение</th>
-              <th>Последний</th>
-              <th>Предыдущий</th>
-              <th>Δ</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map(r => {
-              const cls = r.delta >= 0 ? "deltaPlus" : "deltaMinus";
-              const sign = r.delta >= 0 ? "+" : "";
-              const prevTxt = r.prevW ? `${r.prevW} кг` : "—";
-              return `
-                <tr>
-                  <td>${r.ex}</td>
-                  <td><b>${r.lastW} кг</b></td>
-                  <td>${prevTxt}</td>
-                  <td class="${cls}">${r.prevW ? (sign + r.delta + " кг") : "—"}</td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
-        </table>
+    return `
+      <div class="pItem">
+        <div class="pTitle">${escapeHtml(r.ex)}</div>
+
+        <div class="pGrid">
+          <div class="pRow">
+            <div class="pLbl">Последний</div>
+            <div class="pVal">${lastTxt}</div>
+          </div>
+
+          <div class="pRow">
+            <div class="pLbl">Предыдущий</div>
+            <div class="pVal" style="opacity:${hasPrev ? 1 : .7}">${prevTxt}</div>
+          </div>
+
+          <div class="pRow">
+            <div class="pLbl">Δ</div>
+            <div class="pVal">${deltaHtml}</div>
+          </div>
+        </div>
       </div>
     `;
-  }
+  }).join("");
+}
+  
 
   // ---------------------------
   // Admin
