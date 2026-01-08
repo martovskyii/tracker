@@ -255,12 +255,17 @@
     overflow:hidden;border:1px solid var(--border);
     margin-top:8px;
   }
-  .bar > div{
-    height:100%;
-    width:0%;
-    background:var(--btn);
-    transition:width .25s ease;
-  }
+.bar > div{
+  height:100%;
+  width:0%;
+  background: var(--btn); /* pink возьмёт розовый */
+  transition:width .25s ease;
+}
+
+/* black theme (когда data-theme НЕ pink) */
+:root:not([data-theme="pink"]) .bar > div{
+  background: linear-gradient(90deg, rgba(122,180,255,.55), rgba(122,180,255,1));
+}
 
   .deltaPlus{color:var(--success);font-weight:900}
   .deltaMinus{color:var(--danger);font-weight:900}
