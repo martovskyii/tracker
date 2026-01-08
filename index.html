@@ -660,6 +660,185 @@ input[type="date"]{
   height:100%;
 }
 
+
+
+/* ---------------------------
+   Micro-interactions (hover / press / focus)
+   --------------------------- */
+
+:root{
+  --ease: cubic-bezier(.2,.9,.2,1);
+  --dur-fast: .12s;
+  --dur: .18s;
+  --shadow: 0 12px 30px rgba(0,0,0,.28);
+}
+
+/* уважение к настройке "уменьшить движения" */
+@media (prefers-reduced-motion: reduce){
+  *{ transition: none !important; animation: none !important; scroll-behavior:auto !important; }
+}
+
+/* общий принцип: всё кликабельное с плавными трансформами */
+.btn,
+.iconbtn,
+.tab,
+.pill,
+.chip,
+.workoutCard,
+.workoutDel,
+.toastBtn,
+.dateBtn{
+  transition:
+    transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    opacity var(--dur-fast) ease;
+  will-change: transform;
+}
+
+/* hover только там, где реально есть мышка */
+@media (hover:hover) and (pointer:fine){
+
+  .btn:hover{
+    transform: translateY(-1px);
+    box-shadow: var(--shadow);
+  }
+  .btn.secondary:hover{
+    border-color: rgba(255,255,255,.22);
+  }
+  [data-theme="pink"] .btn.secondary:hover{
+    border-color: rgba(255,62,168,.28);
+  }
+
+  .iconbtn:hover{
+    transform: translateY(-1px);
+    border-color: rgba(255,255,255,.20);
+    box-shadow: 0 10px 24px rgba(0,0,0,.25);
+  }
+
+  .tab:hover{
+    color: var(--text);
+    border-color: rgba(255,255,255,.16);
+    background: rgba(255,255,255,.04);
+  }
+  [data-theme="pink"] .tab:hover{
+    background: rgba(255,62,168,.08);
+    border-color: rgba(255,62,168,.18);
+  }
+
+  .pill:hover{
+    transform: translateY(-1px);
+    border-color: rgba(255,255,255,.18);
+    color: var(--text);
+    background: rgba(255,255,255,.04);
+  }
+  [data-theme="pink"] .pill:hover{
+    background: rgba(255,62,168,.08);
+    border-color: rgba(255,62,168,.18);
+  }
+
+  .chip:hover{
+    transform: translateY(-1px);
+    border-color: rgba(255,255,255,.20);
+    background: rgba(255,255,255,.04);
+  }
+  [data-theme="pink"] .chip:hover{
+    background: rgba(255,62,168,.08);
+    border-color: rgba(255,62,168,.18);
+  }
+
+  .workoutCard:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 18px 44px rgba(0,0,0,.30);
+    border-color: rgba(255,255,255,.18);
+  }
+  [data-theme="pink"] .workoutCard:hover{
+    border-color: rgba(255,62,168,.22);
+  }
+
+  .workoutDel:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(0,0,0,.22);
+  }
+
+  .dateBtn:hover{
+    border-color: rgba(255,255,255,.22);
+    background: rgba(255,255,255,.03);
+  }
+}
+
+/* press (tap/click) — работает и на мобиле */
+.btn:active,
+.iconbtn:active,
+.tab:active,
+.pill:active,
+.chip:active,
+.workoutCard:active,
+.workoutDel:active,
+.toastBtn:active,
+.dateBtn:active{
+  transform: scale(.98);
+  opacity: .95;
+}
+
+/* focus для клавиатуры (не мешает тачу) */
+.btn:focus-visible,
+.iconbtn:focus-visible,
+.tab:focus-visible,
+.pill:focus-visible,
+.chip:focus-visible,
+.workoutCard:focus-visible,
+.workoutDel:focus-visible,
+.toastBtn:focus-visible,
+.dateBtn:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(77,163,255,.28);
+}
+
+[data-theme="pink"] .btn:focus-visible,
+[data-theme="pink"] .iconbtn:focus-visible,
+[data-theme="pink"] .tab:focus-visible,
+[data-theme="pink"] .pill:focus-visible,
+[data-theme="pink"] .chip:focus-visible,
+[data-theme="pink"] .workoutCard:focus-visible,
+[data-theme="pink"] .workoutDel:focus-visible,
+[data-theme="pink"] .toastBtn:focus-visible,
+[data-theme="pink"] .dateBtn:focus-visible,
+[data-theme="pink"] input:focus-visible,
+[data-theme="pink"] select:focus-visible,
+[data-theme="pink"] textarea:focus-visible{
+  box-shadow: 0 0 0 3px rgba(255,95,191,.20);
+}
+
+/* inputs — лёгкая подсветка при фокусе */
+input:focus, select:focus, textarea:focus{
+  border-color: rgba(255,255,255,.22);
+  background: rgba(255,255,255,.03);
+}
+[data-theme="pink"] input:focus,
+[data-theme="pink"] select:focus,
+[data-theme="pink"] textarea:focus{
+  border-color: rgba(255,62,168,.26);
+  background: rgba(255,62,168,.06);
+}
+
+/* активный tab — чуть "приподнять" */
+.tab.active{
+  transition:
+    transform var(--dur) var(--ease),
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+.tab.active{
+  transform: translateY(-1px);
+}
+
 </style>
 </head>
 
