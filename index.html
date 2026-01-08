@@ -168,6 +168,33 @@
   }
   .tabs::-webkit-scrollbar{display:none;}
 
+  #screenApp.swiping{
+    position:relative;
+    overflow:hidden;
+  }
+  #screenApp.swiping .tabpane.swipe-layer{
+    position:absolute;
+    left:0;
+    right:0;
+    top:var(--tabsH);
+    height:calc(100% - var(--tabsH));
+    will-change:transform;
+  }
+  #screenApp.swiping .tabpane.swipe-layer.swipe-anim{
+    transition:transform 220ms cubic-bezier(.22,.61,.36,1);
+  }
+  #screenApp.swiping .tabpane.swipe-layer.swipe-current{z-index:2;}
+  #screenApp.swiping .tabpane.swipe-layer.swipe-next{z-index:1;}
+  #screenApp.swiping .tabpane.swipe-layer.swipe-next::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:rgba(0,0,0,.05);
+    opacity:var(--dim,0);
+    pointer-events:none;
+    transition:opacity 220ms cubic-bezier(.22,.61,.36,1);
+  }
+
   #bodyWeightChart{ width:100%; height:220px; }
 
   .tab{
@@ -2841,6 +2868,7 @@ setSub("Загрузка…");
 // ---------------------------
 (function initSwipeTabs(){
   const root = el("app"); // твой контейнер
+  const screen = el("screenApp");
   if (!root) return;
 
   // порядок свайпа
@@ -2856,63 +2884,213 @@ setSub("Загрузка…");
     return !!t.closest?.("input, textarea, select, button, a, .tabs, canvas, video");
   }
 
+  function isScrollableTarget(t){
+    let node = t;
+    while (node && node !== root && node !== screen) {
+      const style = getComputedStyle(node);
+      if ((style.overflowY === "auto" || style.overflowY === "scroll") && node.scrollHeight > node.clientHeight + 1) {
+        return true;
+      }
+      node = node.parentElement;
+    }
+    return false;
+  }
+
   let sx = 0, sy = 0, st = 0;
+  let lastX = 0, lastT = 0, prevX = 0, prevT = 0;
+  let locked = false, dragging = false, animating = false;
+  let dir = 0, nextTab = null;
+  let currentPane = null, nextPane = null;
+  let prevDisplayCurrent = "", prevDisplayNext = "";
+  let prevHeight = "";
+  let baseX = 0;
+  let rafId = 0, pendingX = 0;
+
+  function setTransforms(x){
+    if (!currentPane || !nextPane) return;
+    const w = window.innerWidth || 1;
+    currentPane.style.transform = `translate3d(${x}px,0,0)`;
+    nextPane.style.transform = `translate3d(${x + baseX}px,0,0)`;
+    const progress = Math.min(1, Math.abs(x) / w);
+    nextPane.style.setProperty("--dim", (0.12 * (1 - progress)).toFixed(3));
+  }
+
+  function scheduleTransform(x){
+    pendingX = x;
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = 0;
+      setTransforms(pendingX);
+    });
+  }
+
+  function startDrag(){
+    if (!screen) return false;
+    currentPane = el("tab-" + activeTab);
+    nextPane = el("tab-" + nextTab);
+    if (!currentPane || !nextPane) return false;
+
+    const tabs = screen.querySelector(".tabs");
+    const h = screen.getBoundingClientRect().height;
+    prevHeight = screen.style.height;
+    screen.style.height = h + "px";
+    if (tabs) screen.style.setProperty("--tabsH", `${tabs.getBoundingClientRect().height}px`);
+    screen.classList.add("swiping");
+
+    prevDisplayCurrent = currentPane.style.display;
+    prevDisplayNext = nextPane.style.display;
+
+    currentPane.style.display = "block";
+    nextPane.style.display = "block";
+    currentPane.classList.add("swipe-layer", "swipe-current");
+    nextPane.classList.add("swipe-layer", "swipe-next");
+
+    baseX = dir > 0 ? (window.innerWidth || 0) : -(window.innerWidth || 0);
+    currentPane.style.transform = "translate3d(0,0,0)";
+    nextPane.style.transform = `translate3d(${baseX}px,0,0)`;
+    nextPane.style.setProperty("--dim", "0.12");
+    return true;
+  }
+
+  function cleanup(complete){
+    if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    if (screen) {
+      screen.classList.remove("swiping");
+      screen.style.height = prevHeight;
+      screen.style.removeProperty("--tabsH");
+    }
+    [currentPane, nextPane].forEach(p => {
+      if (!p) return;
+      p.classList.remove("swipe-layer", "swipe-current", "swipe-next", "swipe-anim");
+      p.style.transform = "";
+      p.style.removeProperty("--dim");
+    });
+    if (!complete) {
+      if (currentPane) currentPane.style.display = prevDisplayCurrent;
+      if (nextPane) nextPane.style.display = prevDisplayNext;
+    }
+    currentPane = null;
+    nextPane = null;
+    nextTab = null;
+    dir = 0;
+    dragging = false;
+    locked = false;
+    animating = false;
+  }
 
   root.addEventListener("touchstart", (e) => {
     if (!e.touches || e.touches.length !== 1) return;
+    if (animating) return;
 
     const t = e.target;
     if (isInteractiveTarget(t)) return;
+    if (isScrollableTarget(t)) return;
+
+    const order = getSwipeTabsOrder();
+    if (order.indexOf(activeTab) === -1) return;
 
     sx = e.touches[0].clientX;
     sy = e.touches[0].clientY;
     st = Date.now();
+    lastX = sx;
+    lastT = st;
+    prevX = sx;
+    prevT = st;
+    locked = false;
+    dragging = false;
+    nextTab = null;
+    dir = 0;
   }, { passive: true });
 
-  root.addEventListener("touchend", (e) => {
-    // если старт не был зафиксирован
+  root.addEventListener("touchmove", (e) => {
     if (!st) return;
+    if (!e.touches || e.touches.length !== 1) return;
 
     const t = e.target;
-    if (isInteractiveTarget(t)) { st = 0; return; }
+    if (!dragging && isInteractiveTarget(t)) { st = 0; return; }
 
-    const touch = e.changedTouches?.[0];
-    if (!touch) { st = 0; return; }
-
+    const touch = e.touches[0];
     const dx = touch.clientX - sx;
     const dy = touch.clientY - sy;
-    const dt = Date.now() - st;
 
-    // сброс
+    if (!locked) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dy) > Math.abs(dx) * 1.1) { st = 0; return; }
+      if (Math.abs(dx) > Math.abs(dy) * 1.1) {
+        locked = true;
+        dir = dx < 0 ? 1 : -1;
+        const order = getSwipeTabsOrder();
+        const i = order.indexOf(activeTab);
+        const nextIndex = dir > 0 ? i + 1 : i - 1;
+        if (nextIndex < 0 || nextIndex >= order.length) { st = 0; locked = false; return; }
+        nextTab = order[nextIndex];
+        dragging = startDrag();
+        if (!dragging) { st = 0; locked = false; return; }
+      }
+    }
+
+    if (!dragging) return;
+
+    e.preventDefault();
+    prevX = lastX;
+    prevT = lastT;
+    lastX = touch.clientX;
+    lastT = Date.now();
+
+    const w = window.innerWidth || 1;
+    const clamped = Math.max(-w, Math.min(w, dx));
+    scheduleTransform(clamped);
+  }, { passive: false });
+
+  function finishSwipe(complete){
+    if (!dragging || !currentPane || !nextPane) { cleanup(false); return; }
+    animating = true;
+    currentPane.classList.add("swipe-anim");
+    nextPane.classList.add("swipe-anim");
+
+    const w = window.innerWidth || 1;
+    const endX = complete ? (dir > 0 ? -w : w) : 0;
+    requestAnimationFrame(() => {
+      setTransforms(endX);
+    });
+
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      if (complete) {
+        if (nextTab === "history") { setActiveTabUI("history"); renderHistory(); cleanup(true); return; }
+        if (nextTab === "progress") { setActiveTabUI("progress"); renderProgress(); cleanup(true); return; }
+        if (nextTab === "select") { setActiveTabUI("select"); renderWorkoutSelect(); cleanup(true); return; }
+        if (nextTab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); cleanup(true); return; }
+        if (nextTab === "admin") { setActiveTabUI("admin"); cleanup(true); return; }
+      }
+      cleanup(false);
+    };
+
+    currentPane.addEventListener("transitionend", done, { once: true });
+    setTimeout(done, 260);
+  }
+
+  function onEnd(e){
+    if (!st) return;
+    if (!dragging) { st = 0; return; }
+
+    const touch = e.changedTouches?.[0];
+    if (!touch) { st = 0; finishSwipe(false); return; }
+
+    const dx = touch.clientX - sx;
+    const w = window.innerWidth || 1;
+    const v = (lastT > prevT) ? (lastX - prevX) / Math.max(1, lastT - prevT) : 0;
+    const fast = Math.abs(v) > 0.6;
+    const far = Math.abs(dx) > w * 0.25;
+
     st = 0;
+    finishSwipe(far || fast);
+  }
 
-    // условия свайпа
-    const MIN_X = 55;        // минимальная длина по X
-    const MAX_Y = 45;        // чтобы не путать с вертикальным скроллом
-    const MAX_TIME = 650;    // чтобы это был именно свайп, а не “медленный тащ”
-
-    if (Math.abs(dx) < MIN_X) return;
-    if (Math.abs(dy) > MAX_Y) return;
-    if (dt > MAX_TIME) return;
-
-    const order = getSwipeTabsOrder();
-    const i = order.indexOf(activeTab);
-    if (i === -1) return;
-
-    // dx < 0: свайп влево => следующий таб
-    // dx > 0: свайп вправо => предыдущий таб
-    const nextIndex = dx < 0 ? i + 1 : i - 1;
-    if (nextIndex < 0 || nextIndex >= order.length) return;
-
-    const nextTab = order[nextIndex];
-
-    // рендер как в кликах
-    if (nextTab === "history") { setActiveTabUI("history"); renderHistory(); return; }
-    if (nextTab === "progress") { setActiveTabUI("progress"); renderProgress(); return; }
-    if (nextTab === "select") { setActiveTabUI("select"); renderWorkoutSelect(); return; }
-    if (nextTab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); return; }
-    if (nextTab === "admin") { setActiveTabUI("admin"); return; }
-  }, { passive: true });
+  root.addEventListener("touchend", onEnd, { passive: true });
+  root.addEventListener("touchcancel", onEnd, { passive: true });
 })();
 
 
