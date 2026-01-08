@@ -842,8 +842,30 @@ input:focus, select:focus, textarea:focus{
 /* --- Smooth screen transitions --- */
 #screenApp{ position:relative; } /* чтобы старый экран мог быть absolute */
 
+/* --- Smooth swipe stage --- */
 .tabpane{
-  display:none;
+  position: relative;
+}
+
+.tabpane.swipe-layer{
+  position: absolute !important;
+  inset: 0;
+  width: 100%;
+  will-change: transform;
+  display: block !important;
+}
+
+.tabpane.swipe-no-trans{
+  transition: none !important;
+}
+
+.tabpane.swipe-trans{
+  transition: transform 320ms cubic-bezier(.22,.61,.36,1);
+}
+
+#screenApp{
+  position: relative; /* важно для absolute слоёв */
+  overflow: hidden;   /* чтобы слои не торчали по бокам */
 }
 
 .tabpane.is-active{
@@ -2945,82 +2967,205 @@ setSub("Загрузка…");
 // ---------------------------
 // Swipe navigation between tabs
 // ---------------------------
-(function initSwipeTabs(){
-  const root = el("app"); // твой контейнер
+// ---------------------------
+// Smooth swipe navigation between tabs (drag + glide)
+// ---------------------------
+(function initSwipeTabsSmooth(){
+  const root = el("screenApp"); // лучше, чем #app (чтобы не ловить login)
   if (!root) return;
 
-  // порядок свайпа
-  function getSwipeTabsOrder(){
+  function getOrder(){
     const base = ["dashboard", "select", "history", "progress"];
-    if (isAdminLocal()) base.push("admin"); // админ только для админа
+    if (isAdminLocal()) base.push("admin");
     return base;
   }
 
-  // защита: не свайпать, если пользователь скроллит по вертикали / вводит данные
   function isInteractiveTarget(t){
-    if (!t) return false;
-    return !!t.closest?.("input, textarea, select, button, a, .tabs, canvas, video");
+    return !!t?.closest?.("input, textarea, select, button, a, .tabs, canvas, video");
   }
 
-  let sx = 0, sy = 0, st = 0;
+  function openTab(tab){
+    // как в кликах
+    if (tab === "history")   { setActiveTabUI("history");   renderHistory(); return; }
+    if (tab === "progress")  { setActiveTabUI("progress");  renderProgress(); return; }
+    if (tab === "select")    { setActiveTabUI("select");    renderWorkoutSelect(); return; }
+    if (tab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); return; }
+    if (tab === "admin")     { setActiveTabUI("admin"); return; }
+  }
+
+  let sx=0, sy=0, st=0;
+  let dragging = false;
+  let lockedDir = null; // "h" | "v" | null
+
+  let fromTab = null;
+  let toTab = null;
+
+  let fromPane = null;
+  let toPane = null;
+
+  function cleanupLayers(){
+    if (fromPane){
+      fromPane.classList.remove("swipe-layer","swipe-no-trans","swipe-trans");
+      fromPane.style.transform = "";
+    }
+    if (toPane){
+      toPane.classList.remove("swipe-layer","swipe-no-trans","swipe-trans");
+      toPane.style.transform = "";
+      // не прячем тут — дальше setActiveTabUI/openTab сделает как надо
+    }
+    fromPane = null;
+    toPane = null;
+    fromTab = null;
+    toTab = null;
+    dragging = false;
+    lockedDir = null;
+  }
+
+  function setDragPositions(dx){
+    const w = root.clientWidth || 360;
+    // dx < 0 => свайп влево (идём вперёд), следующий приходит справа
+    // dx > 0 => свайп вправо (идём назад), следующий приходит слева
+    fromPane.style.transform = `translate3d(${dx}px,0,0)`;
+
+    const dir = dx < 0 ? -1 : 1;
+    const startX = dir < 0 ? w : -w;           // откуда приходит toPane
+    toPane.style.transform = `translate3d(${startX + dx}px,0,0)`;
+  }
 
   root.addEventListener("touchstart", (e) => {
     if (!e.touches || e.touches.length !== 1) return;
-
-    const t = e.target;
-    if (isInteractiveTarget(t)) return;
+    if (isInteractiveTarget(e.target)) return;
 
     sx = e.touches[0].clientX;
     sy = e.touches[0].clientY;
     st = Date.now();
+    dragging = false;
+    lockedDir = null;
   }, { passive: true });
 
-  root.addEventListener("touchend", (e) => {
-    // если старт не был зафиксирован
-    if (!st) return;
+  // важное: passive:false чтобы можно было preventDefault и не было вертикального скролла при горизонтальном свайпе
+  root.addEventListener("touchmove", (e) => {
+    if (!st || !e.touches || e.touches.length !== 1) return;
+    if (isInteractiveTarget(e.target)) return;
 
-    const t = e.target;
-    if (isInteractiveTarget(t)) { st = 0; return; }
+    const x = e.touches[0].clientX;
+    const y = e.touches[0].clientY;
 
-    const touch = e.changedTouches?.[0];
-    if (!touch) { st = 0; return; }
+    const dx = x - sx;
+    const dy = y - sy;
 
-    const dx = touch.clientX - sx;
-    const dy = touch.clientY - sy;
-    const dt = Date.now() - st;
+    // сначала определяем, горизонталь это или вертикаль
+    if (!lockedDir){
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) lockedDir = "h";
+      else if (Math.abs(dy) > 10) lockedDir = "v";
+      else return;
+    }
 
-    // сброс
-    st = 0;
+    if (lockedDir !== "h") return;
 
-    // условия свайпа
-    const MIN_X = 55;        // минимальная длина по X
-    const MAX_Y = 45;        // чтобы не путать с вертикальным скроллом
-    const MAX_TIME = 650;    // чтобы это был именно свайп, а не “медленный тащ”
+    // если это горизонтальный свайп — блокируем прокрутку страницы
+    e.preventDefault();
 
-    if (Math.abs(dx) < MIN_X) return;
-    if (Math.abs(dy) > MAX_Y) return;
-    if (dt > MAX_TIME) return;
-
-    const order = getSwipeTabsOrder();
+    const order = getOrder();
     const i = order.indexOf(activeTab);
     if (i === -1) return;
 
-    // dx < 0: свайп влево => следующий таб
-    // dx > 0: свайп вправо => предыдущий таб
-    const nextIndex = dx < 0 ? i + 1 : i - 1;
-    if (nextIndex < 0 || nextIndex >= order.length) return;
+    const w = root.clientWidth || 360;
 
-    const nextTab = order[nextIndex];
+    // ограничиваем dx, чтобы не улетало
+    const clamped = Math.max(-w, Math.min(w, dx));
 
-    // рендер как в кликах
-    if (nextTab === "history") { setActiveTabUI("history"); renderHistory(); return; }
-    if (nextTab === "progress") { setActiveTabUI("progress"); renderProgress(); return; }
-    if (nextTab === "select") { setActiveTabUI("select"); renderWorkoutSelect(); return; }
-    if (nextTab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); return; }
-    if (nextTab === "admin") { setActiveTabUI("admin"); return; }
+    // на первом “достаточном” движении поднимаем соседний экран
+    if (!dragging){
+      const nextIndex = clamped < 0 ? i + 1 : i - 1;
+      if (nextIndex < 0 || nextIndex >= order.length) {
+        // некуда свайпать
+        st = 0;
+        return;
+      }
+
+      fromTab = activeTab;
+      toTab = order[nextIndex];
+
+      fromPane = el("tab-" + fromTab);
+      toPane = el("tab-" + toTab);
+      if (!fromPane || !toPane) { st = 0; return; }
+
+      // показать оба слоя
+      fromPane.style.display = "";
+      toPane.style.display = "";
+
+      fromPane.classList.add("swipe-layer","swipe-no-trans");
+      toPane.classList.add("swipe-layer","swipe-no-trans");
+
+      // стартовая позиция toPane
+      const startX = clamped < 0 ? w : -w;
+      toPane.style.transform = `translate3d(${startX}px,0,0)`;
+      fromPane.style.transform = `translate3d(0px,0,0)`;
+
+      dragging = true;
+    }
+
+    if (!dragging) return;
+
+    setDragPositions(clamped);
+  }, { passive: false });
+
+  root.addEventListener("touchend", () => {
+    if (!st) return;
+    st = 0;
+
+    if (!dragging || !fromPane || !toPane || !toTab){
+      cleanupLayers();
+      return;
+    }
+
+    const w = root.clientWidth || 360;
+
+    // текущий dx берём из transform (без парсинга матрицы — проще хранить не будем, оценим по position)
+    // поэтому просто решим по положению fromPane (берём translateX из style)
+    const m = fromPane.style.transform.match(/translate3d\(([-0-9.]+)px/);
+    const dx = m ? Number(m[1]) : 0;
+
+    const abs = Math.abs(dx);
+    const shouldGo = abs > w * 0.25; // порог 25%
+
+    // включаем transition и докатываем
+    fromPane.classList.remove("swipe-no-trans");
+    toPane.classList.remove("swipe-no-trans");
+    fromPane.classList.add("swipe-trans");
+    toPane.classList.add("swipe-trans");
+
+    if (shouldGo){
+      const dir = dx < 0 ? -1 : 1;
+      // from улетает, to становится 0
+      fromPane.style.transform = `translate3d(${-dir * w}px,0,0)`;
+      toPane.style.transform = `translate3d(0px,0,0)`;
+
+      setTimeout(() => {
+        // финализируем “настоящим” переключением таба (и рендером)
+        openTab(toTab);
+        cleanupLayers();
+      }, 330);
+    } else {
+      // откат назад
+      const dir = dx < 0 ? -1 : 1;
+      fromPane.style.transform = `translate3d(0px,0,0)`;
+      toPane.style.transform = `translate3d(${dir < 0 ? w : -w}px,0,0)`;
+
+      setTimeout(() => {
+        // возвращаем как было
+        setActiveTabUI(fromTab); // без ререндеров лишних
+        cleanupLayers();
+      }, 330);
+    }
+  }, { passive: true });
+
+  root.addEventListener("touchcancel", () => {
+    st = 0;
+    cleanupLayers();
   }, { passive: true });
 })();
-
 
 </script>
 
