@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="ru">
 <head>
@@ -2655,6 +2656,87 @@ show("screenApp", false);
 show("logoutBtn", false);
 show("adminTabBtn", false);
 setSub("Загрузка…");
+
+// ---------------------------
+// Swipe navigation between tabs
+// ---------------------------
+(function initSwipeTabs(){
+  const root = el("app"); // твой контейнер
+  if (!root) return;
+
+  // порядок свайпа
+  function getSwipeTabsOrder(){
+    const base = ["dashboard", "select", "history", "progress"];
+    if (isAdminLocal()) base.push("admin"); // админ только для админа
+    return base;
+  }
+
+  // защита: не свайпать, если пользователь скроллит по вертикали / вводит данные
+  function isInteractiveTarget(t){
+    if (!t) return false;
+    return !!t.closest?.("input, textarea, select, button, a, .tabs, canvas, video");
+  }
+
+  let sx = 0, sy = 0, st = 0;
+
+  root.addEventListener("touchstart", (e) => {
+    if (!e.touches || e.touches.length !== 1) return;
+
+    const t = e.target;
+    if (isInteractiveTarget(t)) return;
+
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+    st = Date.now();
+  }, { passive: true });
+
+  root.addEventListener("touchend", (e) => {
+    // если старт не был зафиксирован
+    if (!st) return;
+
+    const t = e.target;
+    if (isInteractiveTarget(t)) { st = 0; return; }
+
+    const touch = e.changedTouches?.[0];
+    if (!touch) { st = 0; return; }
+
+    const dx = touch.clientX - sx;
+    const dy = touch.clientY - sy;
+    const dt = Date.now() - st;
+
+    // сброс
+    st = 0;
+
+    // условия свайпа
+    const MIN_X = 55;        // минимальная длина по X
+    const MAX_Y = 45;        // чтобы не путать с вертикальным скроллом
+    const MAX_TIME = 650;    // чтобы это был именно свайп, а не “медленный тащ”
+
+    if (Math.abs(dx) < MIN_X) return;
+    if (Math.abs(dy) > MAX_Y) return;
+    if (dt > MAX_TIME) return;
+
+    const order = getSwipeTabsOrder();
+    const i = order.indexOf(activeTab);
+    if (i === -1) return;
+
+    // dx < 0: свайп влево => следующий таб
+    // dx > 0: свайп вправо => предыдущий таб
+    const nextIndex = dx < 0 ? i + 1 : i - 1;
+    if (nextIndex < 0 || nextIndex >= order.length) return;
+
+    const nextTab = order[nextIndex];
+
+    // рендер как в кликах
+    if (nextTab === "history") { setActiveTabUI("history"); renderHistory(); return; }
+    if (nextTab === "progress") { setActiveTabUI("progress"); renderProgress(); return; }
+    if (nextTab === "select") { setActiveTabUI("select"); renderWorkoutSelect(); return; }
+    if (nextTab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); return; }
+    if (nextTab === "admin") { setActiveTabUI("admin"); return; }
+  }, { passive: true });
+})();
+
+
 </script>
 
 <div class="toast" id="toast">
