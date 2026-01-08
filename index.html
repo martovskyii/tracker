@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#0b0b0c" />
   <link rel="icon" href="https://ik.imagekit.io/tgquwnwxx/Frame%2044.svg" type="image/svg">
   <link rel="apple-touch-icon" href="https://ik.imagekit.io/tgquwnwxx/Frame%2044.svg">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#0b0b0c;
@@ -601,6 +602,12 @@ input[type="date"]{
   white-space:nowrap;
 }
 
+.pGroupTitle{
+  font-weight:900;
+  font-size:15px;
+  margin:8px 2px 2px;
+}
+
 
 /* ---------- Body measurements (vertical blocks) ---------- */
 .vtable{ display:grid; gap:12px; margin-top:10px; }
@@ -1131,8 +1138,7 @@ input:focus, select:focus, textarea:focus{
           <select id="monthSelect"></select>
 
           <div class="actions">
-            <button class="btn secondary" id="exportMonth">Экспорт CSV выбранного месяца</button>
-            <button class="btn secondary" id="exportAllMonths">Экспорт CSV всех месяцев</button>
+            <button class="btn secondary" id="exportXlsx">Export XLSX (Workouts + Body)</button>
           </div>
         </div>
         <div id="historyList"></div>
@@ -1399,19 +1405,6 @@ function monthKey(iso) { return iso.slice(0, 7); } // YYYY-MM
 function monthTitle(ym) {
   const [y, m] = ym.split("-");
   return `${m}.${y}`;
-}
-
-function downloadText(filename, text) {
-  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
-
-function csvEscape(v) {
-  const s = String(v ?? "");
-  return `"${s.replaceAll('"', '""')}"`;
 }
 
 function toNumOrNull(v) {
@@ -2546,71 +2539,78 @@ el("saveSet")?.addEventListener("click", () => {
     });
   }
 
-  function buildCsvForMonth(ym) {
+  function buildWorkoutsRowsAll() {
     const rows = [["date", "month", "workout", "exercise", "setNo", "weight", "reps"]];
-    history
-      .filter(h => h.month === ym)
-      .forEach(h => {
-        (h.items || []).forEach(it => {
-          (it.sets || []).forEach(s => {
-            rows.push([h.date, h.month, h.workout, it.ex, s.setNo, s.weight, s.reps]);
-          });
+    history.forEach(h => {
+      (h.items || []).forEach(it => {
+        (it.sets || []).forEach(s => {
+          rows.push([h.date, h.month, h.workout, it.ex, s.setNo, s.weight, s.reps]);
         });
       });
-
-    return rows.map(r => r.map(csvEscape).join(",")).join("\n");
+    });
+    return rows;
   }
 
-  el("exportMonth")?.addEventListener("click", () => {
-    const sel = el("monthSelect");
-    const ym = sel ? sel.value : "";
-    if (!ym) return alert("Нет данных.");
-    const csv = buildCsvForMonth(ym);
-    downloadText(`workouts_${ym}.csv`, csv);
-  });
-
-  el("exportAllMonths")?.addEventListener("click", () => {
-    const months = Array.from(new Set(history.map(h => h.month))).sort();
-    if (!months.length) return alert("Нет данных.");
-    months.forEach(ym => {
-      const csv = buildCsvForMonth(ym);
-      downloadText(`workouts_${ym}.csv`, csv);
+  function buildBodyRowsAll() {
+    const rows = [["dateISO", "dateFormatted", "weight", "chest", "biceps", "waist", "hips", "updatedAt"]];
+    const keys = Object.keys(bodyWeeklyMap || {}).sort();
+    keys.forEach(k => {
+      const v = bodyWeeklyMap[k] || {};
+      rows.push([k, fmt(k), v.weight, v.chest, v.biceps, v.waist, v.hips, v.updatedAt]);
     });
+    return rows;
+  }
+
+  function exportXlsxAll() {
+    const wb = XLSX.utils.book_new();
+    const wsWorkouts = XLSX.utils.aoa_to_sheet(buildWorkoutsRowsAll());
+    const wsBody = XLSX.utils.aoa_to_sheet(buildBodyRowsAll());
+    XLSX.utils.book_append_sheet(wb, wsWorkouts, "Workouts");
+    XLSX.utils.book_append_sheet(wb, wsBody, "Body");
+    XLSX.writeFile(wb, `workout_tracker_export_${todayISO()}.xlsx`);
+  }
+
+  el("exportXlsx")?.addEventListener("click", async () => {
+    if (!Object.keys(bodyWeeklyMap || {}).length) {
+      await loadBodyWeekly();
+    }
+    exportXlsxAll();
   });
 
   // ---------------------------
   // Progress: last vs prev
   // ---------------------------
   function buildProgressLastVsPrev() {
-    const logs = [];
+    const byWorkout = new Map();
     for (const h of history) {
+      const w = h.workout || "—";
+      if (!byWorkout.has(w)) byWorkout.set(w, new Map());
+      const exMap = byWorkout.get(w);
       for (const it of (h.items || [])) {
         const best = Math.max(...(it.sets || []).map(s => Number(s.weight || 0)), 0);
-        logs.push({ ex: it.ex, date: h.date, best });
+        if (!exMap.has(it.ex)) exMap.set(it.ex, []);
+        exMap.get(it.ex).push({ ex: it.ex, date: h.date, best });
       }
     }
 
-    const byEx = new Map();
-    for (const r of logs) {
-      if (!byEx.has(r.ex)) byEx.set(r.ex, []);
-      byEx.get(r.ex).push(r);
-    }
-
-    const rows = [];
-    for (const [ex, arr] of byEx.entries()) {
-      arr.sort((a, b) => b.date.localeCompare(a.date));
-      const last = arr[0];
-      const prev = arr[1];
-
-      const lastW = last?.best ?? 0;
-      const prevW = prev?.best ?? 0;
-      const delta = lastW - prevW;
-
-      rows.push({ ex, lastW, prevW, delta });
-    }
-
-    rows.sort((a, b) => (b.delta - a.delta) || (b.lastW - a.lastW));
-    return rows;
+    const groups = [];
+    const workoutNames = Array.from(byWorkout.keys()).sort((a, b) => a.localeCompare(b));
+    workoutNames.forEach(w => {
+      const exMap = byWorkout.get(w);
+      const items = [];
+      for (const [ex, arr] of exMap.entries()) {
+        arr.sort((a, b) => b.date.localeCompare(a.date));
+        const last = arr[0];
+        const prev = arr[1];
+        const lastW = last?.best ?? 0;
+        const prevW = prev?.best ?? 0;
+        const delta = lastW - prevW;
+        items.push({ ex, lastW, prevW, delta, hasPrev: arr.length > 1 });
+      }
+      items.sort((a, b) => a.ex.localeCompare(b.ex));
+      groups.push({ workout: w, items });
+    });
+    return groups;
   }
 
   function escapeHtml(s){
@@ -2623,11 +2623,11 @@ el("saveSet")?.addEventListener("click", () => {
 }
 
 function renderProgress() {
-  const rows = buildProgressLastVsPrev();
+  const groups = buildProgressLastVsPrev();
   const wrap = el("progressTableWrap");
   if (!wrap) return;
 
-  if (!rows.length) {
+  if (!groups.length) {
     wrap.innerHTML = `<div class="muted">Недостаточно данных.</div>`;
     return;
   }
@@ -2635,39 +2635,46 @@ function renderProgress() {
   wrap.innerHTML = `<div class="pList" id="pList"></div>`;
   const list = el("pList");
 
-  list.innerHTML = rows.map(r => {
-    const hasPrev = !!r.prevW;
+  list.innerHTML = groups.map(g => {
+    const itemsHtml = g.items.map(r => {
+      const lastTxt = r.lastW ? `${r.lastW} кг` : "—";
+      const prevTxt = r.hasPrev ? `${r.prevW} кг` : "—";
 
-    const lastTxt = r.lastW ? `${r.lastW} кг` : "—";
-    const prevTxt = hasPrev ? `${r.prevW} кг` : "—";
+      let deltaHtml = `<span class="deltaEq">—</span>`;
+      if (r.hasPrev) {
+        if (r.delta > 0) deltaHtml = `<span class="deltaPlus">+${r.delta} кг</span>`;
+        else if (r.delta < 0) deltaHtml = `<span class="deltaMinus">${r.delta} кг</span>`;
+        else deltaHtml = `<span class="deltaEq">0 кг</span>`;
+      }
 
-    let deltaHtml = `<span class="deltaEq">—</span>`;
-    if (hasPrev) {
-      if (r.delta > 0) deltaHtml = `<span class="deltaPlus">+${r.delta} кг</span>`;
-      else if (r.delta < 0) deltaHtml = `<span class="deltaMinus">${r.delta} кг</span>`;
-      else deltaHtml = `<span class="deltaEq">0 кг</span>`;
-    }
+      return `
+        <div class="pItem">
+          <div class="pTitle">${escapeHtml(r.ex)}</div>
 
-    return `
-      <div class="pItem">
-        <div class="pTitle">${escapeHtml(r.ex)}</div>
+          <div class="pGrid">
+            <div class="pRow">
+              <div class="pLbl">Последний</div>
+              <div class="pVal">${lastTxt}</div>
+            </div>
 
-        <div class="pGrid">
-          <div class="pRow">
-            <div class="pLbl">Последний</div>
-            <div class="pVal">${lastTxt}</div>
-          </div>
+            <div class="pRow">
+              <div class="pLbl">Предыдущий</div>
+              <div class="pVal" style="opacity:${r.hasPrev ? 1 : .7}">${prevTxt}</div>
+            </div>
 
-          <div class="pRow">
-            <div class="pLbl">Предыдущий</div>
-            <div class="pVal" style="opacity:${hasPrev ? 1 : .7}">${prevTxt}</div>
-          </div>
-
-          <div class="pRow">
-            <div class="pLbl">Δ</div>
-            <div class="pVal">${deltaHtml}</div>
+            <div class="pRow">
+              <div class="pLbl">Δ</div>
+              <div class="pVal">${deltaHtml}</div>
+            </div>
           </div>
         </div>
+      `;
+    }).join("");
+
+    return `
+      <div class="pGroup">
+        <div class="pGroupTitle">${escapeHtml(g.workout)}</div>
+        ${itemsHtml}
       </div>
     `;
   }).join("");
