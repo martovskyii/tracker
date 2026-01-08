@@ -675,11 +675,7 @@ input[type="date"]{
 
 /* уважение к настройке "уменьшить движения" */
 @media (prefers-reduced-motion: reduce){
-  *{
-    transition: none !important;
-    animation: none !important;
-    scroll-behavior: auto !important;
-  }
+  *{ transition: none !important; animation: none !important; scroll-behavior:auto !important; }
 }
 
 /* общий принцип: всё кликабельное с плавными трансформами */
@@ -702,7 +698,7 @@ input[type="date"]{
   will-change: transform;
 }
 
-/* hover — только там, где реально есть мышка */
+/* hover только там, где реально есть мышка */
 @media (hover:hover) and (pointer:fine){
 
   .btn:hover{
@@ -771,7 +767,7 @@ input[type="date"]{
     border-color: rgba(255,255,255,.22);
     background: rgba(255,255,255,.03);
   }
-} /* <-- закрыли hover-media */
+}
 
 /* press (tap/click) — работает и на мобиле */
 .btn:active,
@@ -787,7 +783,7 @@ input[type="date"]{
   opacity: .95;
 }
 
-/* focus-visible */
+/* focus для клавиатуры (не мешает тачу) */
 .btn:focus-visible,
 .iconbtn:focus-visible,
 .tab:focus-visible,
@@ -819,10 +815,8 @@ textarea:focus-visible{
   box-shadow: 0 0 0 3px rgba(255,95,191,.20);
 }
 
-/* inputs focus */
-input:focus,
-select:focus,
-textarea:focus{
+/* inputs — лёгкая подсветка при фокусе */
+input:focus, select:focus, textarea:focus{
   border-color: rgba(255,255,255,.22);
   background: rgba(255,255,255,.03);
 }
@@ -833,53 +827,16 @@ textarea:focus{
   background: rgba(255,62,168,.06);
 }
 
-/* активный tab */
+/* активный tab — чуть "приподнять" */
+.tab.active{
+  transition:
+    transform var(--dur) var(--ease),
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
 .tab.active{
   transform: translateY(-1px);
-}
-
-/* ================================
-   Swipe screens (ЕДИНСТВЕННАЯ версия)
-   ================================ */
-
-#screenApp{
-  position: relative;
-  overflow: hidden;
-  --tabsH: 0px; /* JS выставляет высоту .tabs */
-}
-
-#screenApp .tabs{
-  position: sticky;
-  z-index: 50;
-}
-
-/* каждый экран */
-.tabpane{
-  background: var(--bg);
-}
-
-/* слой свайпа */
-.tabpane.swipe-layer{
-  position: absolute !important;
-  left: 0;
-  right: 0;
-  top: var(--tabsH);
-  width: 100%;
-  display: block !important;
-  will-change: transform;
-  z-index: 10;
-  bottom: auto;
-  height: calc(100% - var(--tabsH));
-}
-
-/* drag */
-.tabpane.swipe-no-trans{
-  transition: none !important;
-}
-
-/* glide */
-.tabpane.swipe-trans{
-  transition: transform 320ms cubic-bezier(.22,.61,.36,1);
 }
 
 </style>
@@ -1902,118 +1859,61 @@ async function deleteBodyWeeklyByMonday(dateISO) {
     return null;
   }
 
-// ---------------------------
-// Tabs
-// ---------------------------
-const TABS = ["dashboard", "select", "workout", "history", "progress", "admin"];
+  // ---------------------------
+  // Tabs
+  // ---------------------------
+  const TABS = ["dashboard", "select", "workout", "history", "progress", "admin"];
 
-function setActiveTabUI(tab, opts = {}) {
-  const { animate = false, dir = 0 } = opts; // dir: +1 вправо, -1 влево
-  const prev = activeTab;
-  activeTab = tab;
+  function setActiveTabUI(tab) {
+    activeTab = tab;
 
-  // tabs UI
-  document.querySelectorAll(".tab").forEach(t => {
-    t.classList.toggle("active", t.dataset.tab === tab);
-  });
-
-  const prevPane = el("tab-" + prev);
-  const nextPane = el("tab-" + tab);
-
-  // без анимации / первый рендер / нет панелей
-  if (!animate || !prevPane || !nextPane || prev === tab) {
-    TABS.forEach(k => {
-      const pane = el("tab-" + k);
-      if (!pane) return;
-      const on = (k === tab);
-      pane.style.display = on ? "" : "none";
-      pane.classList.toggle("is-active", on);
-
-      // на всякий — чистим классы анимации
-      pane.classList.remove(
-        "is-anim","is-leave",
-        "enter-right","enter-left","leave-left","leave-right"
-      );
+    document.querySelectorAll(".tab").forEach(t => {
+      t.classList.toggle("active", t.dataset.tab === tab);
     });
 
-    if (tab === "dashboard") { renderBodyWeightChart(); renderBodyMeasTable(); }
-    return;
+    TABS.forEach(k => {
+      const pane = el("tab-" + k);
+      if (pane) pane.style.display = (k === tab) ? "" : "none";
+    });
+
+    // если вес/параметры размещены на дашборде — перерисуем при заходе
+    if (tab === "dashboard") {
+      renderBodyWeightChart();
+      renderBodyMeasTable();
+    }
   }
 
-  // показать next
-  nextPane.style.display = "";
-  nextPane.classList.add("is-anim", "is-active");
+  document.querySelectorAll(".tab").forEach(t => {
+    t.addEventListener("click", () => {
+      const tab = t.dataset.tab;
 
-  // prev тоже видимым и overlay
-  prevPane.style.display = "";
-  prevPane.classList.add("is-anim", "is-leave");
+      if (tab === "admin") {
+        if (!isAdminLocal()) return;
+        setActiveTabUI("admin");
+        return;
+      }
 
-  const nextEnter = dir < 0 ? "enter-right" : "enter-left";
-  const prevLeave = dir < 0 ? "leave-left" : "leave-right";
-
-  nextPane.classList.remove("enter-right","enter-left","leave-left","leave-right");
-  prevPane.classList.remove("enter-right","enter-left","leave-left","leave-right");
-
-  requestAnimationFrame(() => {
-    nextPane.classList.add(nextEnter);
-    prevPane.classList.add(prevLeave);
+      if (tab === "history") { setActiveTabUI("history"); renderHistory(); return; }
+      if (tab === "progress") { setActiveTabUI("progress"); renderProgress(); return; }
+      if (tab === "select") { setActiveTabUI("select"); renderWorkoutSelect(); return; }
+      if (tab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); return; }
+      if (tab === "workout") { setActiveTabUI("workout"); return; }
+    });
   });
 
-  const ms = 240;
-  setTimeout(() => {
-    TABS.forEach(k => {
-      const pane = el("tab-" + k);
-      if (!pane) return;
-      const on = (k === tab);
-      pane.style.display = on ? "" : "none";
-      pane.classList.toggle("is-active", on);
-
-      pane.classList.remove(
-        "is-anim","is-leave",
-        "enter-right","enter-left","leave-left","leave-right"
-      );
-    });
-
-    if (tab === "dashboard") { renderBodyWeightChart(); renderBodyMeasTable(); }
-  }, ms);
-}
-
-// клики по табам (без анимации, либо можешь включить позже)
-document.querySelectorAll(".tab").forEach(t => {
-  t.addEventListener("click", () => {
-    const tab = t.dataset.tab;
-
-    if (tab === "admin") {
-      if (!isAdminLocal()) return;
-      setActiveTabUI("admin");
+  el("goStart")?.addEventListener("click", () => {
+    const d = loadDraft();
+    if (d) {
+      resumeFromDraft(d);
       return;
     }
-
-    if (tab === "history")   { setActiveTabUI("history");   renderHistory(); return; }
-    if (tab === "progress")  { setActiveTabUI("progress");  renderProgress(); return; }
-    if (tab === "select")    { setActiveTabUI("select");    renderWorkoutSelect(); return; }
-    if (tab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); return; }
-    if (tab === "workout")   { setActiveTabUI("workout");   return; }
+    setActiveTabUI("select");
+    renderWorkoutSelect();
   });
-});
 
-// кнопки на дашборде
-el("goStart")?.addEventListener("click", () => {
-  const d = loadDraft();
-  if (d) { resumeFromDraft(d); return; }
-  setActiveTabUI("select");
-  renderWorkoutSelect();
-});
+  el("goHistory")?.addEventListener("click", () => { setActiveTabUI("history"); renderHistory(); });
+  el("goProgress")?.addEventListener("click", () => { setActiveTabUI("progress"); renderProgress(); });
 
-el("goHistory")?.addEventListener("click", () => {
-  setActiveTabUI("history");
-  renderHistory();
-});
-
-el("goProgress")?.addEventListener("click", () => {
-  setActiveTabUI("progress");
-  renderProgress();
-});
   // ---------------------------
   // Load sessions
   // ---------------------------
@@ -2937,226 +2837,84 @@ show("adminTabBtn", false);
 setSub("Загрузка…");
 
 // ---------------------------
-// Smooth swipe navigation between tabs (drag + glide)
+// Swipe navigation between tabs
 // ---------------------------
-(function initSwipeTabsSmooth(){
-  const root = el("screenApp");
+(function initSwipeTabs(){
+  const root = el("app"); // твой контейнер
   if (!root) return;
-  let lockedRootH = 0;
 
-  const tabsEl = root.querySelector(".tabs");
-
-  function updateTabsH(){
-    const h = tabsEl ? tabsEl.offsetHeight : 0;
-    root.style.setProperty("--tabsH", h + "px");
-  }
-  updateTabsH();
-  window.addEventListener("resize", updateTabsH);
-
-  function getOrder(){
+  // порядок свайпа
+  function getSwipeTabsOrder(){
     const base = ["dashboard", "select", "history", "progress"];
-    if (isAdminLocal()) base.push("admin");
+    if (isAdminLocal()) base.push("admin"); // админ только для админа
     return base;
   }
 
+  // защита: не свайпать, если пользователь скроллит по вертикали / вводит данные
   function isInteractiveTarget(t){
-    return !!t?.closest?.(
-      "input, textarea, select, button, a, .tabs, canvas, video, [contenteditable]"
-    );
+    if (!t) return false;
+    return !!t.closest?.("input, textarea, select, button, a, .tabs, canvas, video");
   }
 
-  function openTab(tab){
-    if (tab === "history")   { setActiveTabUI("history");   renderHistory(); return; }
-    if (tab === "progress")  { setActiveTabUI("progress");  renderProgress(); return; }
-    if (tab === "select")    { setActiveTabUI("select");    renderWorkoutSelect(); return; }
-    if (tab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); return; }
-    if (tab === "admin")     { setActiveTabUI("admin"); return; }
-  }
-
-  let sx = 0, sy = 0;
-  let dragging = false;
-  let lockedDir = null; // "h" | "v" | null
-
-  let fromTab = null;
-  let toTab = null;
-
-  let fromPane = null;
-  let toPane = null;
-
-  let lastDx = 0;
-
-  function cleanupLayers(){
-    if (fromPane){
-      fromPane.classList.remove("swipe-layer","swipe-no-trans","swipe-trans");
-      fromPane.style.transform = "";
-    }
-    if (toPane){
-      toPane.classList.remove("swipe-layer","swipe-no-trans","swipe-trans");
-      toPane.style.transform = "";
-    }
-
-    if (lockedRootH){
-  root.style.height = "";
-  lockedRootH = 0;
-}
-
-    fromPane = null;
-    toPane = null;
-    fromTab = null;
-    toTab = null;
-    dragging = false;
-    lockedDir = null;
-    lastDx = 0;
-  }
-
-  function getW(){
-    return root.clientWidth || 360;
-  }
-
-  function setDragPositions(dx){
-    const w = getW();
-    lastDx = dx;
-
-    // dx < 0 => свайп влево => следующий приходит справа
-    // dx > 0 => свайп вправо => следующий приходит слева
-    fromPane.style.transform = `translate3d(${dx}px,0,0)`;
-
-    const dir = dx < 0 ? -1 : 1;
-    const startX = (dir < 0) ? w : -w;
-    toPane.style.transform = `translate3d(${startX + dx}px,0,0)`;
-  }
+  let sx = 0, sy = 0, st = 0;
 
   root.addEventListener("touchstart", (e) => {
     if (!e.touches || e.touches.length !== 1) return;
-    if (isInteractiveTarget(e.target)) return;
 
-    updateTabsH();
+    const t = e.target;
+    if (isInteractiveTarget(t)) return;
 
     sx = e.touches[0].clientX;
     sy = e.touches[0].clientY;
-
-    dragging = false;
-    lockedDir = null;
-    lastDx = 0;
+    st = Date.now();
   }, { passive: true });
 
-  root.addEventListener("touchmove", (e) => {
-    if (!e.touches || e.touches.length !== 1) return;
-    if (isInteractiveTarget(e.target)) return;
+  root.addEventListener("touchend", (e) => {
+    // если старт не был зафиксирован
+    if (!st) return;
 
-    const x = e.touches[0].clientX;
-    const y = e.touches[0].clientY;
+    const t = e.target;
+    if (isInteractiveTarget(t)) { st = 0; return; }
 
-    const dx = x - sx;
-    const dy = y - sy;
+    const touch = e.changedTouches?.[0];
+    if (!touch) { st = 0; return; }
 
-    // определяем направление
-    if (!lockedDir){
-      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) lockedDir = "h";
-      else if (Math.abs(dy) > 10) lockedDir = "v";
-      else return;
-    }
-    if (lockedDir !== "h") return;
+    const dx = touch.clientX - sx;
+    const dy = touch.clientY - sy;
+    const dt = Date.now() - st;
 
-    // блокируем вертикальный скролл при горизонтальном свайпе
-    e.preventDefault();
+    // сброс
+    st = 0;
 
-    const order = getOrder();
+    // условия свайпа
+    const MIN_X = 55;        // минимальная длина по X
+    const MAX_Y = 45;        // чтобы не путать с вертикальным скроллом
+    const MAX_TIME = 650;    // чтобы это был именно свайп, а не “медленный тащ”
+
+    if (Math.abs(dx) < MIN_X) return;
+    if (Math.abs(dy) > MAX_Y) return;
+    if (dt > MAX_TIME) return;
+
+    const order = getSwipeTabsOrder();
     const i = order.indexOf(activeTab);
     if (i === -1) return;
 
-    const w = getW();
-    const clamped = Math.max(-w, Math.min(w, dx));
+    // dx < 0: свайп влево => следующий таб
+    // dx > 0: свайп вправо => предыдущий таб
+    const nextIndex = dx < 0 ? i + 1 : i - 1;
+    if (nextIndex < 0 || nextIndex >= order.length) return;
 
-    if (!dragging){
-      const nextIndex = clamped < 0 ? i + 1 : i - 1;
-      if (nextIndex < 0 || nextIndex >= order.length) return;
+    const nextTab = order[nextIndex];
 
-      fromTab = activeTab;
-      toTab = order[nextIndex];
-
-      fromPane = el("tab-" + fromTab);
-      toPane = el("tab-" + toTab);
-      if (!fromPane || !toPane) return;
-
-
-
-      // показать оба слоя
-      fromPane.style.display = "";
-      toPane.style.display = "";
-
-      fromPane.classList.add("swipe-layer","swipe-no-trans");
-      toPane.classList.add("swipe-layer","swipe-no-trans");
-
-      // зафиксировать высоту контейнера, иначе при absolute он схлопнется до tabs
-if (!lockedRootH){
-  lockedRootH = root.offsetHeight;
-  root.style.height = lockedRootH + "px";
-}
-
-      // стартовая позиция toPane
-      const startX = clamped < 0 ? w : -w;
-      toPane.style.transform = `translate3d(${startX}px,0,0)`;
-      fromPane.style.transform = `translate3d(0px,0,0)`;
-
-      dragging = true;
-    }
-
-    if (!dragging) return;
-    setDragPositions(clamped);
-
-  }, { passive: false });
-
-  function finishSwipe(commit){
-    if (!fromPane || !toPane || !fromTab) { cleanupLayers(); return; }
-
-    const w = getW();
-
-    fromPane.classList.remove("swipe-no-trans");
-    toPane.classList.remove("swipe-no-trans");
-    fromPane.classList.add("swipe-trans");
-    toPane.classList.add("swipe-trans");
-
-    const dx = lastDx;
-    const dir = dx < 0 ? -1 : 1;
-
-    if (commit && toTab){
-      // ВАЖНО: from улетает в сторону свайпа: dx<0 => -w, dx>0 => +w
-      fromPane.style.transform = `translate3d(${dir * w}px,0,0)`;
-      toPane.style.transform = `translate3d(0px,0,0)`;
-
-      setTimeout(() => {
-        openTab(toTab);
-        cleanupLayers();
-      }, 330);
-
-    } else {
-      // откат
-      fromPane.style.transform = `translate3d(0px,0,0)`;
-      toPane.style.transform = `translate3d(${dir < 0 ? w : -w}px,0,0)`;
-
-      setTimeout(() => {
-        setActiveTabUI(fromTab);
-        cleanupLayers();
-      }, 330);
-    }
-  }
-
-  root.addEventListener("touchend", () => {
-    if (!dragging || !fromPane || !toPane) { cleanupLayers(); return; }
-
-    const w = getW();
-    const abs = Math.abs(lastDx);
-    const shouldGo = abs > w * 0.25;
-
-    finishSwipe(shouldGo);
+    // рендер как в кликах
+    if (nextTab === "history") { setActiveTabUI("history"); renderHistory(); return; }
+    if (nextTab === "progress") { setActiveTabUI("progress"); renderProgress(); return; }
+    if (nextTab === "select") { setActiveTabUI("select"); renderWorkoutSelect(); return; }
+    if (nextTab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); return; }
+    if (nextTab === "admin") { setActiveTabUI("admin"); return; }
   }, { passive: true });
-
-  root.addEventListener("touchcancel", () => {
-    cleanupLayers();
-  }, { passive: true });
-
 })();
+
 
 </script>
 
