@@ -864,11 +864,12 @@ textarea:focus{
   left: 0;
   right: 0;
   top: var(--tabsH);
-  bottom: 0;
   width: 100%;
   display: block !important;
   will-change: transform;
   z-index: 10;
+  bottom: auto;
+  height: calc(100% - var(--tabsH));
 }
 
 /* drag */
