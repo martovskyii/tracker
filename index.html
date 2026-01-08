@@ -910,6 +910,14 @@ input:focus, select:focus, textarea:focus{
   .tabpane.enter-right,.tabpane.enter-left,.tabpane.leave-left,.tabpane.leave-right{ animation:none !important; }
 }
 
+
+/* чтобы слои точно были над контентом, но табы сверху */
+#screenApp{ position:relative; overflow:hidden; }
+#screenApp .tabs{ position:sticky; z-index:50; }
+.tabpane.swipe-layer{ z-index:10; } /* табы выше, слои ниже табов */
+
+
+
 </style>
 </head>
 
@@ -2965,14 +2973,22 @@ show("adminTabBtn", false);
 setSub("Загрузка…");
 
 // ---------------------------
-// Swipe navigation between tabs
-// ---------------------------
-// ---------------------------
-// Smooth swipe navigation between tabs (drag + glide)
+// Smooth swipe navigation between tabs (native-like drag + glide)
 // ---------------------------
 (function initSwipeTabsSmooth(){
-  const root = el("screenApp"); // лучше, чем #app (чтобы не ловить login)
+  const root = el("screenApp");
   if (!root) return;
+
+  // Настройки "ощущения"
+  const CONF = {
+    edgeResistance: 0.35,   // сопротивление на краях (когда некуда листать)
+    startLockPx: 10,        // когда считаем, что жест начался
+    axisRatio: 1.2,         // насколько горизонталь должна быть сильнее вертикали
+    commitPct: 0.22,        // порог по расстоянию (доля ширины)
+    commitVel: 0.55,        // порог по скорости (px/ms)
+    animMs: 320,            // длительность доката
+    easing: "cubic-bezier(.22,.61,.36,1)"
+  };
 
   function getOrder(){
     const base = ["dashboard", "select", "history", "progress"];
@@ -2981,7 +2997,8 @@ setSub("Загрузка…");
   }
 
   function isInteractiveTarget(t){
-    return !!t?.closest?.("input, textarea, select, button, a, .tabs, canvas, video");
+    // важно: не мешаем вводам, кнопкам, табам, видео, канвасу, и т.п.
+    return !!t?.closest?.("input, textarea, select, button, a, .tabs, canvas, video, [data-no-swipe]");
   }
 
   function openTab(tab){
@@ -2993,17 +3010,56 @@ setSub("Загрузка…");
     if (tab === "admin")     { setActiveTabUI("admin"); return; }
   }
 
-  let sx=0, sy=0, st=0;
-  let dragging = false;
+  // ---- внутреннее состояние жеста ----
+  let sx = 0, sy = 0, t0 = 0;
+  let lastX = 0;
   let lockedDir = null; // "h" | "v" | null
+  let dragging = false;
 
-  let fromTab = null;
-  let toTab = null;
+  let fromTab = null, toTab = null;
+  let fromPane = null, toPane = null;
 
-  let fromPane = null;
-  let toPane = null;
+  let containerPrevHeight = "";
+  let containerLocked = false;
+
+  function lockHeightForSwipe(){
+    // фиксируем высоту на время свайпа, чтобы не было "проседаний"/подложки
+    if (containerLocked) return;
+    containerLocked = true;
+    containerPrevHeight = root.style.height;
+
+    // берём текущую высоту видимого экрана
+    const h = root.getBoundingClientRect().height;
+    root.style.height = h + "px";
+  }
+
+  function unlockHeightAfterSwipe(){
+    if (!containerLocked) return;
+    containerLocked = false;
+    root.style.height = containerPrevHeight || "";
+    containerPrevHeight = "";
+  }
+
+  function setupLayers(){
+    if (!fromPane || !toPane) return;
+
+    // показать оба слоя
+    fromPane.style.display = "";
+    toPane.style.display = "";
+
+    fromPane.classList.add("swipe-layer", "swipe-no-trans");
+    toPane.classList.add("swipe-layer", "swipe-no-trans");
+
+    // чтобы не было кликов по уезжающему слою во время жеста
+    fromPane.style.pointerEvents = "none";
+    toPane.style.pointerEvents = "none";
+  }
 
   function cleanupLayers(){
+    // вернуть pointer-events
+    if (fromPane) fromPane.style.pointerEvents = "";
+    if (toPane)   toPane.style.pointerEvents = "";
+
     if (fromPane){
       fromPane.classList.remove("swipe-layer","swipe-no-trans","swipe-trans");
       fromPane.style.transform = "";
@@ -3011,25 +3067,62 @@ setSub("Загрузка…");
     if (toPane){
       toPane.classList.remove("swipe-layer","swipe-no-trans","swipe-trans");
       toPane.style.transform = "";
-      // не прячем тут — дальше setActiveTabUI/openTab сделает как надо
     }
+
     fromPane = null;
     toPane = null;
     fromTab = null;
     toTab = null;
+
     dragging = false;
     lockedDir = null;
+    unlockHeightAfterSwipe();
   }
 
-  function setDragPositions(dx){
+  function applyTransforms(dx){
     const w = root.clientWidth || 360;
-    // dx < 0 => свайп влево (идём вперёд), следующий приходит справа
-    // dx > 0 => свайп вправо (идём назад), следующий приходит слева
-    fromPane.style.transform = `translate3d(${dx}px,0,0)`;
 
+    // dir: dx<0 свайп влево => следующий справа, dx>0 свайп вправо => следующий слева
     const dir = dx < 0 ? -1 : 1;
-    const startX = dir < 0 ? w : -w;           // откуда приходит toPane
-    toPane.style.transform = `translate3d(${startX + dx}px,0,0)`;
+    const startX = (dir < 0) ? w : -w;
+
+    fromPane.style.transform = `translate3d(${dx}px,0,0)`;
+    toPane.style.transform   = `translate3d(${startX + dx}px,0,0)`;
+  }
+
+  function setTransition(on){
+    if (!fromPane || !toPane) return;
+
+    fromPane.style.transition = on ? `transform ${CONF.animMs}ms ${CONF.easing}` : "";
+    toPane.style.transition   = on ? `transform ${CONF.animMs}ms ${CONF.easing}` : "";
+
+    fromPane.classList.toggle("swipe-trans", !!on);
+    toPane.classList.toggle("swipe-trans", !!on);
+
+    if (!on){
+      fromPane.classList.add("swipe-no-trans");
+      toPane.classList.add("swipe-no-trans");
+    } else {
+      fromPane.classList.remove("swipe-no-trans");
+      toPane.classList.remove("swipe-no-trans");
+    }
+  }
+
+  function finishWithTransition(done){
+    // используем transitionend, но с fallback таймером
+    let called = false;
+    const onEnd = () => {
+      if (called) return;
+      called = true;
+      fromPane?.removeEventListener("transitionend", onEnd);
+      toPane?.removeEventListener("transitionend", onEnd);
+      done();
+    };
+
+    fromPane?.addEventListener("transitionend", onEnd, { once: true });
+    toPane?.addEventListener("transitionend", onEnd, { once: true });
+
+    setTimeout(onEnd, CONF.animMs + 60);
   }
 
   root.addEventListener("touchstart", (e) => {
@@ -3038,14 +3131,15 @@ setSub("Загрузка…");
 
     sx = e.touches[0].clientX;
     sy = e.touches[0].clientY;
-    st = Date.now();
+    lastX = sx;
+    t0 = performance.now();
+
     dragging = false;
     lockedDir = null;
   }, { passive: true });
 
-  // важное: passive:false чтобы можно было preventDefault и не было вертикального скролла при горизонтальном свайпе
   root.addEventListener("touchmove", (e) => {
-    if (!st || !e.touches || e.touches.length !== 1) return;
+    if (!t0 || !e.touches || e.touches.length !== 1) return;
     if (isInteractiveTarget(e.target)) return;
 
     const x = e.touches[0].clientX;
@@ -3054,16 +3148,16 @@ setSub("Загрузка…");
     const dx = x - sx;
     const dy = y - sy;
 
-    // сначала определяем, горизонталь это или вертикаль
+    // определяем ось
     if (!lockedDir){
-      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) lockedDir = "h";
-      else if (Math.abs(dy) > 10) lockedDir = "v";
+      if (Math.abs(dx) > CONF.startLockPx && Math.abs(dx) > Math.abs(dy) * CONF.axisRatio) lockedDir = "h";
+      else if (Math.abs(dy) > CONF.startLockPx) lockedDir = "v";
       else return;
     }
 
     if (lockedDir !== "h") return;
 
-    // если это горизонтальный свайп — блокируем прокрутку страницы
+    // блокируем вертикальный скролл при горизонтальном свайпе
     e.preventDefault();
 
     const order = getOrder();
@@ -3072,15 +3166,19 @@ setSub("Загрузка…");
 
     const w = root.clientWidth || 360;
 
-    // ограничиваем dx, чтобы не улетало
-    const clamped = Math.max(-w, Math.min(w, dx));
+    let clamped = Math.max(-w, Math.min(w, dx));
 
-    // на первом “достаточном” движении поднимаем соседний экран
+    // при попытке свайпа "в пустоту" — сопротивление
+    const nextIndex = clamped < 0 ? i + 1 : i - 1;
+    const hasNeighbor = !(nextIndex < 0 || nextIndex >= order.length);
+    if (!hasNeighbor) clamped = clamped * CONF.edgeResistance;
+
+    // первый реальный старт drag: поднимаем соседний экран
     if (!dragging){
-      const nextIndex = clamped < 0 ? i + 1 : i - 1;
-      if (nextIndex < 0 || nextIndex >= order.length) {
-        // некуда свайпать
-        st = 0;
+      if (!hasNeighbor){
+        // некуда листать — просто держим сопротивление
+        // но слои не поднимаем
+        lastX = x;
         return;
       }
 
@@ -3088,17 +3186,13 @@ setSub("Загрузка…");
       toTab = order[nextIndex];
 
       fromPane = el("tab-" + fromTab);
-      toPane = el("tab-" + toTab);
-      if (!fromPane || !toPane) { st = 0; return; }
+      toPane   = el("tab-" + toTab);
+      if (!fromPane || !toPane) { t0 = 0; return; }
 
-      // показать оба слоя
-      fromPane.style.display = "";
-      toPane.style.display = "";
+      lockHeightForSwipe();
+      setupLayers();
 
-      fromPane.classList.add("swipe-layer","swipe-no-trans");
-      toPane.classList.add("swipe-layer","swipe-no-trans");
-
-      // стартовая позиция toPane
+      // стартовая позиция toPane за экраном
       const startX = clamped < 0 ? w : -w;
       toPane.style.transform = `translate3d(${startX}px,0,0)`;
       fromPane.style.transform = `translate3d(0px,0,0)`;
@@ -3106,65 +3200,75 @@ setSub("Загрузка…");
       dragging = true;
     }
 
-    if (!dragging) return;
+    if (!dragging || !fromPane || !toPane) return;
 
-    setDragPositions(clamped);
+    applyTransforms(clamped);
+    lastX = x;
   }, { passive: false });
 
-  root.addEventListener("touchend", () => {
-    if (!st) return;
-    st = 0;
+  function onEnd(){
+    if (!t0) return;
 
+    const t1 = performance.now();
+    const dt = Math.max(1, t1 - t0);
+
+    // если не было drag-слоёв — просто сброс
     if (!dragging || !fromPane || !toPane || !toTab){
+      t0 = 0;
       cleanupLayers();
       return;
     }
 
     const w = root.clientWidth || 360;
 
-    // текущий dx берём из transform (без парсинга матрицы — проще хранить не будем, оценим по position)
-    // поэтому просто решим по положению fromPane (берём translateX из style)
+    // текущий dx берём из inline transform (мы его туда ставили всегда)
     const m = fromPane.style.transform.match(/translate3d\(([-0-9.]+)px/);
     const dx = m ? Number(m[1]) : 0;
 
-    const abs = Math.abs(dx);
-    const shouldGo = abs > w * 0.25; // порог 25%
+    // скорость по последнему движению (приблизительно)
+    const vx = (lastX - sx) / dt; // px/ms
+
+    const absDx = Math.abs(dx);
+    const absVx = Math.abs(vx);
+
+    const shouldGo =
+      (absDx > w * CONF.commitPct) ||
+      (absVx > CONF.commitVel && absDx > w * 0.06); // быстрый короткий свайп
 
     // включаем transition и докатываем
-    fromPane.classList.remove("swipe-no-trans");
-    toPane.classList.remove("swipe-no-trans");
-    fromPane.classList.add("swipe-trans");
-    toPane.classList.add("swipe-trans");
+    setTransition(true);
 
     if (shouldGo){
       const dir = dx < 0 ? -1 : 1;
-      // from улетает, to становится 0
-      fromPane.style.transform = `translate3d(${-dir * w}px,0,0)`;
-      toPane.style.transform = `translate3d(0px,0,0)`;
 
-      setTimeout(() => {
+      // from улетает, to приходит в 0
+      fromPane.style.transform = `translate3d(${-dir * w}px,0,0)`;
+      toPane.style.transform   = `translate3d(0px,0,0)`;
+
+      finishWithTransition(() => {
         // финализируем “настоящим” переключением таба (и рендером)
         openTab(toTab);
         cleanupLayers();
-      }, 330);
+      });
     } else {
-      // откат назад
       const dir = dx < 0 ? -1 : 1;
+
+      // откат обратно
       fromPane.style.transform = `translate3d(0px,0,0)`;
-      toPane.style.transform = `translate3d(${dir < 0 ? w : -w}px,0,0)`;
+      toPane.style.transform   = `translate3d(${dir < 0 ? w : -w}px,0,0)`;
 
-      setTimeout(() => {
-        // возвращаем как было
-        setActiveTabUI(fromTab); // без ререндеров лишних
+      finishWithTransition(() => {
+        // возвращаем UI без лишних ререндеров
+        setActiveTabUI(fromTab);
         cleanupLayers();
-      }, 330);
+      });
     }
-  }, { passive: true });
 
-  root.addEventListener("touchcancel", () => {
-    st = 0;
-    cleanupLayers();
-  }, { passive: true });
+    t0 = 0;
+  }
+
+  root.addEventListener("touchend", onEnd, { passive: true });
+  root.addEventListener("touchcancel", () => { t0 = 0; cleanupLayers(); }, { passive: true });
 })();
 
 </script>
