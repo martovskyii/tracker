@@ -839,6 +839,55 @@ input:focus, select:focus, textarea:focus{
   transform: translateY(-1px);
 }
 
+/* --- Smooth screen transitions --- */
+#screenApp{ position:relative; } /* чтобы старый экран мог быть absolute */
+
+.tabpane{
+  display:none;
+}
+
+.tabpane.is-active{
+  display:block;
+}
+
+/* во время анимации оба экрана должны быть видимы */
+.tabpane.is-anim{
+  display:block;
+}
+
+/* старый экран — поверх, чтобы не ломать поток */
+.tabpane.is-leave{
+  position:absolute;
+  top:0; left:0; right:0;
+}
+
+/* keyframes */
+@keyframes wtEnterFromRight{
+  from{ transform:translateX(14px); opacity:.0; }
+  to  { transform:translateX(0);    opacity:1;  }
+}
+@keyframes wtEnterFromLeft{
+  from{ transform:translateX(-14px); opacity:.0; }
+  to  { transform:translateX(0);     opacity:1;  }
+}
+@keyframes wtLeaveToLeft{
+  from{ transform:translateX(0);     opacity:1; }
+  to  { transform:translateX(-14px); opacity:0; }
+}
+@keyframes wtLeaveToRight{
+  from{ transform:translateX(0);    opacity:1; }
+  to  { transform:translateX(14px); opacity:0; }
+}
+
+.tabpane.enter-right{ animation: wtEnterFromRight .22s cubic-bezier(.2,.9,.2,1) both; }
+.tabpane.enter-left { animation: wtEnterFromLeft  .22s cubic-bezier(.2,.9,.2,1) both; }
+.tabpane.leave-left { animation: wtLeaveToLeft    .22s cubic-bezier(.2,.9,.2,1) both; }
+.tabpane.leave-right{ animation: wtLeaveToRight   .22s cubic-bezier(.2,.9,.2,1) both; }
+
+@media (prefers-reduced-motion: reduce){
+  .tabpane.enter-right,.tabpane.enter-left,.tabpane.leave-left,.tabpane.leave-right{ animation:none !important; }
+}
+
 </style>
 </head>
 
@@ -1859,61 +1908,118 @@ async function deleteBodyWeeklyByMonday(dateISO) {
     return null;
   }
 
-  // ---------------------------
-  // Tabs
-  // ---------------------------
-  const TABS = ["dashboard", "select", "workout", "history", "progress", "admin"];
+// ---------------------------
+// Tabs
+// ---------------------------
+const TABS = ["dashboard", "select", "workout", "history", "progress", "admin"];
 
-  function setActiveTabUI(tab) {
-    activeTab = tab;
+function setActiveTabUI(tab, opts = {}) {
+  const { animate = false, dir = 0 } = opts; // dir: +1 вправо, -1 влево
+  const prev = activeTab;
+  activeTab = tab;
 
-    document.querySelectorAll(".tab").forEach(t => {
-      t.classList.toggle("active", t.dataset.tab === tab);
-    });
+  // tabs UI
+  document.querySelectorAll(".tab").forEach(t => {
+    t.classList.toggle("active", t.dataset.tab === tab);
+  });
 
+  const prevPane = el("tab-" + prev);
+  const nextPane = el("tab-" + tab);
+
+  // без анимации / первый рендер / нет панелей
+  if (!animate || !prevPane || !nextPane || prev === tab) {
     TABS.forEach(k => {
       const pane = el("tab-" + k);
-      if (pane) pane.style.display = (k === tab) ? "" : "none";
+      if (!pane) return;
+      const on = (k === tab);
+      pane.style.display = on ? "" : "none";
+      pane.classList.toggle("is-active", on);
+
+      // на всякий — чистим классы анимации
+      pane.classList.remove(
+        "is-anim","is-leave",
+        "enter-right","enter-left","leave-left","leave-right"
+      );
     });
 
-    // если вес/параметры размещены на дашборде — перерисуем при заходе
-    if (tab === "dashboard") {
-      renderBodyWeightChart();
-      renderBodyMeasTable();
-    }
+    if (tab === "dashboard") { renderBodyWeightChart(); renderBodyMeasTable(); }
+    return;
   }
 
-  document.querySelectorAll(".tab").forEach(t => {
-    t.addEventListener("click", () => {
-      const tab = t.dataset.tab;
+  // показать next
+  nextPane.style.display = "";
+  nextPane.classList.add("is-anim", "is-active");
 
-      if (tab === "admin") {
-        if (!isAdminLocal()) return;
-        setActiveTabUI("admin");
-        return;
-      }
+  // prev тоже видимым и overlay
+  prevPane.style.display = "";
+  prevPane.classList.add("is-anim", "is-leave");
 
-      if (tab === "history") { setActiveTabUI("history"); renderHistory(); return; }
-      if (tab === "progress") { setActiveTabUI("progress"); renderProgress(); return; }
-      if (tab === "select") { setActiveTabUI("select"); renderWorkoutSelect(); return; }
-      if (tab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); return; }
-      if (tab === "workout") { setActiveTabUI("workout"); return; }
-    });
+  const nextEnter = dir < 0 ? "enter-right" : "enter-left";
+  const prevLeave = dir < 0 ? "leave-left" : "leave-right";
+
+  nextPane.classList.remove("enter-right","enter-left","leave-left","leave-right");
+  prevPane.classList.remove("enter-right","enter-left","leave-left","leave-right");
+
+  requestAnimationFrame(() => {
+    nextPane.classList.add(nextEnter);
+    prevPane.classList.add(prevLeave);
   });
 
-  el("goStart")?.addEventListener("click", () => {
-    const d = loadDraft();
-    if (d) {
-      resumeFromDraft(d);
+  const ms = 240;
+  setTimeout(() => {
+    TABS.forEach(k => {
+      const pane = el("tab-" + k);
+      if (!pane) return;
+      const on = (k === tab);
+      pane.style.display = on ? "" : "none";
+      pane.classList.toggle("is-active", on);
+
+      pane.classList.remove(
+        "is-anim","is-leave",
+        "enter-right","enter-left","leave-left","leave-right"
+      );
+    });
+
+    if (tab === "dashboard") { renderBodyWeightChart(); renderBodyMeasTable(); }
+  }, ms);
+}
+
+// клики по табам (без анимации, либо можешь включить позже)
+document.querySelectorAll(".tab").forEach(t => {
+  t.addEventListener("click", () => {
+    const tab = t.dataset.tab;
+
+    if (tab === "admin") {
+      if (!isAdminLocal()) return;
+      setActiveTabUI("admin");
       return;
     }
-    setActiveTabUI("select");
-    renderWorkoutSelect();
+
+    if (tab === "history")   { setActiveTabUI("history");   renderHistory(); return; }
+    if (tab === "progress")  { setActiveTabUI("progress");  renderProgress(); return; }
+    if (tab === "select")    { setActiveTabUI("select");    renderWorkoutSelect(); return; }
+    if (tab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); return; }
+    if (tab === "workout")   { setActiveTabUI("workout");   return; }
   });
+});
 
-  el("goHistory")?.addEventListener("click", () => { setActiveTabUI("history"); renderHistory(); });
-  el("goProgress")?.addEventListener("click", () => { setActiveTabUI("progress"); renderProgress(); });
+// кнопки на дашборде
+el("goStart")?.addEventListener("click", () => {
+  const d = loadDraft();
+  if (d) { resumeFromDraft(d); return; }
+  setActiveTabUI("select");
+  renderWorkoutSelect();
+});
 
+el("goHistory")?.addEventListener("click", () => {
+  setActiveTabUI("history");
+  renderHistory();
+});
+
+el("goProgress")?.addEventListener("click", () => {
+  setActiveTabUI("progress");
+  renderProgress();
+});
   // ---------------------------
   // Load sessions
   // ---------------------------
