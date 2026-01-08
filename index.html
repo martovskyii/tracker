@@ -619,6 +619,8 @@ input[type="date"]{
 
 
 
+.dateWrap{ position:relative; }
+
 .dateBtn{
   width:100%;
   padding:12px 12px;
@@ -628,10 +630,34 @@ input[type="date"]{
   color:var(--text);
   font-size:16px;
   text-align:left;
+  position:relative;
+  z-index:1;
 }
 
+.dateNative{
+  position:absolute;
+  inset:0;
+  z-index:2;
 
+  /* iOS fix: не делаем 0, иначе кликается только справа */
+  opacity:0.01;
 
+  border:0;
+  background:transparent;
+  cursor:pointer;
+
+  /* важно: НЕ отключаем нативный вид у date */
+  -webkit-appearance:auto;
+  appearance:auto;
+}
+
+/* растянуть “кликабельную” часть на всю ширину/высоту */
+.dateNative::-webkit-calendar-picker-indicator{
+  opacity:0;
+  display:block;
+  width:100%;
+  height:100%;
+}
 
 </style>
 </head>
@@ -739,18 +765,23 @@ input[type="date"]{
     <h2>Тело</h2>
     <div class="muted">Рекомендуется делать запись 1 раз в неделю.</div>
 
-    <div class="row" style="margin-top:10px">
-      <div>
-<label>Дата</label>
-
-<button type="button" class="dateBtn" id="bodyDateBtn">—</button>
-<input id="bodyDate" type="date" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;" />
-      </div>
-      <div>
-        <label>Вес (кг)</label>
-        <input id="bodyWeight" type="number" step="0.1" placeholder="например 60.5" />
-      </div>
+<div class="row" style="margin-top:10px">
+  <div>
+    <label>Дата</label>
+    <div class="dateWrap">
+      <button type="button" class="dateBtn" id="bodyDateBtn">—</button>
+      <input id="bodyDate" type="date" class="dateNative" />
     </div>
+  </div>
+
+  <div>
+    <label>Вес (кг)</label>
+    <input id="bodyWeight" type="number" step="0.1" placeholder="например 60.5" />
+  </div>
+</div>
+
+
+
 
     <div style="font-weight:900;margin-top:12px">Параметры (см)</div>
 <div class="row" style="margin-top:8px">
@@ -1425,77 +1456,72 @@ async function deleteBodyWeeklyByMonday(dateISO) {
   `;
 }
   function initBodyUI() {
-    // железная защита: обработчики навешиваются 1 раз за жизнь страницы
-    if (bodyUIInited) return;
-    bodyUIInited = true;
+  // обработчики навешиваются 1 раз
+  if (bodyUIInited) return;
+  bodyUIInited = true;
 
-    if (el("bodyDate")) el("bodyDate").value = todayISO();
+  if (el("bodyDate")) el("bodyDate").value = todayISO();
 
-      // --- FIX iOS date: кнопка вместо большого input ---
-  function updateBodyDateBtn(){
+
+  // --- Date button text (input лежит поверх кнопки, клики не нужны) ---
+  function updateBodyDateBtn() {
     const d = el("bodyDate")?.value || todayISO();
     const b = el("bodyDateBtn");
     if (b) b.textContent = fmtISO(d);
   }
 
   updateBodyDateBtn();
+  el("bodyDate")?.addEventListener("change", updateBodyDateBtn);
 
   el("bodyDateBtn")?.addEventListener("click", () => {
-    const inp = el("bodyDate");
-    if (!inp) return;
-
-    // iOS / Safari
-    if (inp.showPicker) inp.showPicker();
-    else inp.focus();
-  });
-
-  el("bodyDate")?.addEventListener("change", () => {
-    updateBodyDateBtn();
-  });
-
-    el("bodySaveBtn")?.addEventListener("click", async () => {
-      const dateISO = el("bodyDate")?.value || todayISO();
-
-const payload = {
-  weight: toNumOrNull(el("bodyWeight")?.value),
-  chest:  toNumOrNull(el("bodyChest")?.value),
-  biceps: toNumOrNull(el("bodyBiceps")?.value),
-  waist:  toNumOrNull(el("bodyWaist")?.value),
-  hips:   toNumOrNull(el("bodyHips")?.value)
-};
-
-      await upsertBodyWeekly(dateISO, payload);
-
-      if (el("bodyWeight")) el("bodyWeight").value = "";
-      if (el("bodyChest")) el("bodyChest").value = "";
-      if (el("bodyWaist")) el("bodyWaist").value = "";
-      if (el("bodyHips")) el("bodyHips").value = "";
-      if (el("bodyBiceps")) el("bodyBiceps").value = "";
-
-      renderBodyWeightChart();
-      renderBodyMeasTable();
-    });
-
-    el("bodyClearBtn")?.addEventListener("click", async () => {
-      await clearBodyWeeklyAll();
-      renderBodyWeightChart();
-      renderBodyMeasTable();
-    });
-
-    // ✅ NEW: delegated click for deleting one row
-el("bodyMeasTableWrap")?.addEventListener("click", async (e) => {
-  const btn = e.target?.closest?.('button[data-act="delBodyDate"]');
-  if (!btn) return;
-
-  // ✅ работает для твоих <div class="vrow" data-week="...">
-  // и на будущее подойдёт и для <tr data-week="...">
-  const row = btn.closest("[data-week]");
-  const dateISO = row?.dataset?.week;
-  if (!dateISO) return;
-
-  await deleteBodyWeeklyByMonday(dateISO);
+  const inp = el("bodyDate");
+  if (!inp) return;
+  inp.showPicker?.();
+  inp.focus();
 });
-  }
+
+  el("bodySaveBtn")?.addEventListener("click", async () => {
+    const dateISO = el("bodyDate")?.value || todayISO();
+
+    const payload = {
+      weight: toNumOrNull(el("bodyWeight")?.value),
+      chest:  toNumOrNull(el("bodyChest")?.value),
+      biceps: toNumOrNull(el("bodyBiceps")?.value),
+      waist:  toNumOrNull(el("bodyWaist")?.value),
+      hips:   toNumOrNull(el("bodyHips")?.value)
+    };
+
+    await upsertBodyWeekly(dateISO, payload);
+
+    if (el("bodyWeight")) el("bodyWeight").value = "";
+    if (el("bodyChest")) el("bodyChest").value = "";
+    if (el("bodyWaist")) el("bodyWaist").value = "";
+    if (el("bodyHips")) el("bodyHips").value = "";
+    if (el("bodyBiceps")) el("bodyBiceps").value = "";
+
+    renderBodyWeightChart();
+    renderBodyMeasTable();
+  });
+
+  el("bodyClearBtn")?.addEventListener("click", async () => {
+    await clearBodyWeeklyAll();
+    renderBodyWeightChart();
+    renderBodyMeasTable();
+  });
+
+  el("bodyMeasTableWrap")?.addEventListener("click", async (e) => {
+    const btn = e.target?.closest?.('button[data-act="delBodyDate"]');
+    if (!btn) return;
+
+    const row = btn.closest("[data-week]");
+    const dateISO = row?.dataset?.week;
+    if (!dateISO) return;
+
+    await deleteBodyWeeklyByMonday(dateISO);
+  });
+
+
+}
 
   // ---------------------------
   // Draft workout (persist unfinished session)
