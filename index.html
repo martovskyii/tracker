@@ -547,19 +547,25 @@ input[type="date"]{
 
 
 /* ---------- Progress (vertical, no horizontal scroll) ---------- */
-.pList{ display:grid; gap:10px; margin-top:0; }
-.pItem{
-  border:1px solid rgba(255,255,255,.14);
-  background: rgba(0,0,0,.12);
-  border-radius:20px;
+.progressGroups{ display:grid; gap:12px; margin-top:0; }
+.progressWorkout{ padding:14px; }
+.progressWorkoutHeader{
+  font-weight:900;
+  font-size:16px;
+  margin-bottom:10px;
+}
+.progressExercises{ display:grid; gap:10px; }
+.progressExercise{
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:18px;
   padding:12px;
+  background: rgba(255,255,255,.04);
 }
-[data-theme="pink"] .pItem{
-  border-color: rgba(255,255,255,.12);
-  background: rgba(0,0,0,.10);
+[data-theme="pink"] .progressExercise{
+  border-color: rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
 }
-
-.pTitle{
+.progressExerciseTitle{
   font-weight:900;
   font-size:14px;
   line-height:1.25;
@@ -2632,8 +2638,8 @@ function renderProgress() {
     return;
   }
 
-  wrap.innerHTML = `<div class="pList" id="pList"></div>`;
-  const list = el("pList");
+  wrap.innerHTML = `<div class="progressGroups" id="progressGroups"></div>`;
+  const list = el("progressGroups");
 
   list.innerHTML = groups.map(g => {
     const itemsHtml = g.items.map(r => {
@@ -2648,8 +2654,8 @@ function renderProgress() {
       }
 
       return `
-        <div class="pItem">
-          <div class="pTitle">${escapeHtml(r.ex)}</div>
+        <div class="progressExercise">
+          <div class="progressExerciseTitle">${escapeHtml(r.ex)}</div>
 
           <div class="pGrid">
             <div class="pRow">
@@ -2672,9 +2678,11 @@ function renderProgress() {
     }).join("");
 
     return `
-      <div class="pGroup">
-        <div class="pGroupTitle">${escapeHtml(g.workout)}</div>
-        ${itemsHtml}
+      <div class="card progressWorkout" data-workout="${escapeHtml(g.workout)}">
+        <div class="progressWorkoutHeader">${escapeHtml(g.workout)}</div>
+        <div class="progressExercises">
+          ${itemsHtml}
+        </div>
       </div>
     `;
   }).join("");
