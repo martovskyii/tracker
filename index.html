@@ -2942,6 +2942,7 @@ setSub("Загрузка…");
 (function initSwipeTabsSmooth(){
   const root = el("screenApp");
   if (!root) return;
+  let lockedRootH = 0;
 
   const tabsEl = root.querySelector(".tabs");
 
@@ -2993,6 +2994,11 @@ setSub("Загрузка…");
       toPane.classList.remove("swipe-layer","swipe-no-trans","swipe-trans");
       toPane.style.transform = "";
     }
+
+    if (lockedRootH){
+  root.style.height = "";
+  lockedRootH = 0;
+}
 
     fromPane = null;
     toPane = null;
@@ -3073,12 +3079,20 @@ setSub("Загрузка…");
       toPane = el("tab-" + toTab);
       if (!fromPane || !toPane) return;
 
+
+
       // показать оба слоя
       fromPane.style.display = "";
       toPane.style.display = "";
 
       fromPane.classList.add("swipe-layer","swipe-no-trans");
       toPane.classList.add("swipe-layer","swipe-no-trans");
+
+      // зафиксировать высоту контейнера, иначе при absolute он схлопнется до tabs
+if (!lockedRootH){
+  lockedRootH = root.offsetHeight;
+  root.style.height = lockedRootH + "px";
+}
 
       // стартовая позиция toPane
       const startX = clamped < 0 ? w : -w;
