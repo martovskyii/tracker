@@ -339,6 +339,25 @@
 .delta.down{color:var(--danger)} /* - */
 .delta.eq{color:rgba(255,255,255,.65)}
 
+.deltaBig{
+  font-size:19px;
+  font-weight:900;
+  letter-spacing:.2px;
+}
+:root:not([data-theme="pink"]) .deltaBig{
+  color:#4da3ff;
+  text-shadow:0 0 12px rgba(77,163,255,.25);
+}
+[data-theme="pink"] .deltaBig{
+  color:var(--btn);
+}
+
+.noteHint{
+  margin-top:6px;
+  font-size:12px;
+  color:var(--muted);
+}
+
   .workoutHead{
   display:flex;
   align-items:flex-start;
@@ -1082,6 +1101,10 @@ input:focus, select:focus, textarea:focus{
   </div>
 </div>
 
+          <label>Примечание</label>
+          <textarea id="exNote" rows="3" placeholder="Например: следи за техникой"></textarea>
+          <div class="noteHint">Сохраняется для упражнения навсегда</div>
+
           <div class="kpi" style="margin-top:12px">
             <div class="row">
               <div>
@@ -1112,7 +1135,7 @@ input:focus, select:focus, textarea:focus{
 
 <div style="margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
   <div class="muted" style="font-weight:900;">
-    Добавить: <span id="deltaTxt">+0</span> кг
+    Добавить: <span id="deltaTxt" class="deltaBig">+0</span> кг
   </div>
   <button class="btn secondary" id="clearDeltaBtn" style="width:auto; padding:10px 12px;">Сброс</button>
 </div>
@@ -1144,7 +1167,7 @@ input:focus, select:focus, textarea:focus{
           <select id="monthSelect"></select>
 
           <div class="actions">
-            <button class="btn secondary" id="exportXlsx">Export XLSX (Workouts + Body)</button>
+            <button class="btn secondary" id="exportXlsx">Export XLSX (Workouts + Body + Notes)</button>
           </div>
         </div>
         <div id="historyList"></div>
@@ -1287,6 +1310,9 @@ input:focus, select:focus, textarea:focus{
   let currentWorkout = null;
   let currentExercise = null;
   let session = { date: todayISO(), workout: null, items: {} }; // items[exName] = sets[]
+  let EX_NOTES = {}; // { [exerciseName]: string }
+  let EX_NOTES_UPDATED_AT = null;
+  let exNoteSaveTimer = null;
 
   // ---------------------------
 // Helpers
@@ -1886,6 +1912,45 @@ async function deleteBodyWeeklyByMonday(dateISO) {
   }
 
   // ---------------------------
+  // Firestore: exercise notes (persistent)
+  // ---------------------------
+  async function loadExerciseNotes() {
+    if (!user) return;
+    const ref = doc(db, "users", user.uid, "config", "exerciseNotes");
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      EX_NOTES = {};
+      EX_NOTES_UPDATED_AT = null;
+      return;
+    }
+    const data = snap.data() || {};
+    EX_NOTES = (data.notes && typeof data.notes === "object") ? data.notes : {};
+    EX_NOTES_UPDATED_AT = data.updatedAt || null;
+  }
+
+  function scheduleSaveExerciseNote(exName, noteText) {
+    if (exNoteSaveTimer) clearTimeout(exNoteSaveTimer);
+    exNoteSaveTimer = setTimeout(() => {
+      saveExerciseNote(exName, noteText);
+    }, 500);
+  }
+
+  async function saveExerciseNote(exName, noteText) {
+    if (!user || !exName) return;
+    const text = String(noteText ?? "");
+    if (text === "") delete EX_NOTES[exName];
+    else EX_NOTES[exName] = text;
+
+    EX_NOTES_UPDATED_AT = Date.now();
+
+    const ref = doc(db, "users", user.uid, "config", "exerciseNotes");
+    await setDoc(ref, {
+      notes: { ...EX_NOTES },
+      updatedAt: EX_NOTES_UPDATED_AT
+    }, { merge: true });
+  }
+
+  // ---------------------------
   // Tabs
   // ---------------------------
   const TABS = ["dashboard", "select", "workout", "history", "progress", "admin"];
@@ -2103,6 +2168,11 @@ function renderExercise(resetSetNo = false) {
     el("exTitle").textContent = "Нет упражнений";
     el("exScheme").textContent = "—";
     el("setsTableWrap").innerHTML = "—";
+    const noteEl = el("exNote");
+    if (noteEl) {
+      noteEl.value = "";
+      noteEl.disabled = true;
+    }
     renderPrevBox(); // чтобы скрыть превью
     return;
   }
@@ -2112,6 +2182,11 @@ function renderExercise(resetSetNo = false) {
 
   el("exTitle").textContent = ex.name;
   el("exScheme").textContent = ex.scheme;
+  const noteEl = el("exNote");
+  if (noteEl) {
+    noteEl.disabled = false;
+    noteEl.value = EX_NOTES[ex.name] || "";
+  }
 
   const mBtn = el("machineBtn");
   if (mBtn) {
@@ -2197,6 +2272,14 @@ function autoFillFromPrevIfDefault() {
 el("setNo")?.addEventListener("input", () => {
   renderPrevBox();
   autoFillFromPrevIfDefault();
+});
+
+el("exNote")?.addEventListener("input", (e) => {
+  if (!currentExercise) return;
+  const text = String(e.target?.value ?? "");
+  if (text === "") delete EX_NOTES[currentExercise];
+  else EX_NOTES[currentExercise] = text;
+  scheduleSaveExerciseNote(currentExercise, text);
 });
 
   // ---------------------------
@@ -2567,12 +2650,23 @@ el("saveSet")?.addEventListener("click", () => {
     return rows;
   }
 
+  function buildNotesRowsAll() {
+    const rows = [["exercise", "note", "updatedAt"]];
+    const entries = Object.entries(EX_NOTES || {});
+    entries.forEach(([ex, note]) => {
+      rows.push([ex, note, EX_NOTES_UPDATED_AT]);
+    });
+    return rows;
+  }
+
   function exportXlsxAll() {
     const wb = XLSX.utils.book_new();
     const wsWorkouts = XLSX.utils.aoa_to_sheet(buildWorkoutsRowsAll());
     const wsBody = XLSX.utils.aoa_to_sheet(buildBodyRowsAll());
+    const wsNotes = XLSX.utils.aoa_to_sheet(buildNotesRowsAll());
     XLSX.utils.book_append_sheet(wb, wsWorkouts, "Workouts");
     XLSX.utils.book_append_sheet(wb, wsBody, "Body");
+    XLSX.utils.book_append_sheet(wb, wsNotes, "Notes");
     XLSX.writeFile(wb, `workout_tracker_export_${todayISO()}.xlsx`);
   }
 
@@ -2764,6 +2858,8 @@ onAuthStateChanged(auth, async (u) => {
       profile = null;
       history = [];
       PROGRAM = DEFAULT_PROGRAM;
+      EX_NOTES = {};
+      EX_NOTES_UPDATED_AT = null;
 
       setLoading(false);
       show("screenLogin", true);
@@ -2785,6 +2881,9 @@ onAuthStateChanged(auth, async (u) => {
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
     profile = snap.exists() ? snap.data() : { nick: "—" };
+
+    // exercise notes
+    await loadExerciseNotes();
 
     // history
     await loadHistory();
