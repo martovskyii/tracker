@@ -270,6 +270,90 @@
   .actions{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
+  /* --- History calendar --- */
+  #historyCalendar{margin:10px 0 12px}
+  .calHeader{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .calTitle{
+    font-weight:900;
+    font-size:14px;
+    letter-spacing:.2px;
+    text-transform:capitalize;
+  }
+  .calNavBtn{
+    width:28px;
+    height:28px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:transparent;
+    color:var(--text);
+    display:grid;
+    place-items:center;
+    cursor:pointer;
+    font-size:14px;
+    line-height:1;
+  }
+  .calWeekdays{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:6px;
+    font-size:11px;
+    color:var(--muted);
+    text-align:center;
+    margin-bottom:6px;
+  }
+  .calGrid{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:6px;
+  }
+  .calBlank{height:36px}
+  .calDay{
+    height:36px;
+    border-radius:999px;
+    border:1px solid transparent;
+    background:transparent;
+    color:var(--text);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    cursor:pointer;
+    padding:0;
+  }
+  .calDay.isSelected{
+    background:var(--btn);
+    color:var(--btnText);
+    box-shadow: 0 6px 16px rgba(255,255,255,.18), 0 0 0 1px rgba(255,255,255,.12) inset;
+  }
+  .calDayNum{font-size:13px; font-weight:800}
+  .calDot{
+    width:5px;
+    height:5px;
+    border-radius:999px;
+    background:rgba(255,255,255,.45);
+  }
+  [data-theme="pink"] .calDot{ background:rgba(255,255,255,.55); }
+  .calDay.isSelected .calDot{ background:rgba(0,0,0,.35); }
+  :root:not([data-theme="pink"]) .calDay.hasWorkout,
+  :root:not([data-theme="pink"]) .calDay.isSelected{
+    background: linear-gradient(180deg, #7db7ff 0%, #3f8dff 100%);
+    color:#ffffff;
+    box-shadow: 0 8px 18px rgba(77,163,255,.35), 0 0 0 1px rgba(255,255,255,.18) inset;
+  }
+  [data-theme="pink"] .calDay.hasWorkout,
+  [data-theme="pink"] .calDay.isSelected{
+    background: linear-gradient(180deg, #ff7bc9 0%, #dd77af 100%);
+    color:#ffffff;
+    box-shadow: 0 8px 18px rgba(221,119,175,.35), 0 0 0 1px rgba(255,255,255,.22) inset;
+  }
+
   .kpi{
     border:1px solid var(--border);
     background:rgba(255,255,255,.04);
@@ -746,7 +830,9 @@ input[type="date"]{
 .workoutCard,
 .workoutDel,
 .toastBtn,
-.dateBtn{
+.dateBtn,
+.calNavBtn,
+.calDay{
   transition:
     transform var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease),
@@ -837,7 +923,9 @@ input[type="date"]{
 .workoutCard:active,
 .workoutDel:active,
 .toastBtn:active,
-.dateBtn:active{
+.dateBtn:active,
+.calNavBtn:active,
+.calDay:active{
   transform: scale(.98);
   opacity: .95;
 }
@@ -852,6 +940,8 @@ input[type="date"]{
 .workoutDel:focus-visible,
 .toastBtn:focus-visible,
 .dateBtn:focus-visible,
+.calNavBtn:focus-visible,
+.calDay:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible{
@@ -868,6 +958,8 @@ textarea:focus-visible{
 [data-theme="pink"] .workoutDel:focus-visible,
 [data-theme="pink"] .toastBtn:focus-visible,
 [data-theme="pink"] .dateBtn:focus-visible,
+[data-theme="pink"] .calNavBtn:focus-visible,
+[data-theme="pink"] .calDay:focus-visible,
 [data-theme="pink"] input:focus-visible,
 [data-theme="pink"] select:focus-visible,
 [data-theme="pink"] textarea:focus-visible{
@@ -1175,6 +1267,8 @@ input:focus, select:focus, textarea:focus{
           <h2>История</h2>
           <div class="muted">Тренировки по датам. Экспорт — по месяцам.</div>
 
+          <div id="historyCalendar"></div>
+
           <label>Месяц для экспорта</label>
           <select id="monthSelect"></select>
 
@@ -1318,6 +1412,9 @@ input:focus, select:focus, textarea:focus{
   let profile = null;        // {nick}
   let history = [];          // sessions
   let activeTab = "dashboard";
+  let historyCalendarMonth = null; // YYYY-MM
+  let historySelectedDate = null;  // YYYY-MM-DD | null
+  let historyCalendarInited = false;
 
   let currentWorkout = null;
   let currentExercise = null;
@@ -1449,6 +1546,16 @@ function monthKey(iso) { return iso.slice(0, 7); } // YYYY-MM
 function monthTitle(ym) {
   const [y, m] = ym.split("-");
   return `${m}.${y}`;
+}
+function ymFromISO(iso) { return (iso || "").slice(0, 7); }
+function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
+function weekdayMon0(dateObj) { return (dateObj.getDay() + 6) % 7; } // Mon=0..Sun=6
+function addMonths(ym, delta) {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(y, (m - 1) + delta, 1);
+  const y2 = d.getFullYear();
+  const m2 = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y2}-${m2}`;
 }
 
 function toNumOrNull(v) {
@@ -2584,6 +2691,89 @@ el("saveSet")?.addEventListener("click", () => {
   // ---------------------------
   // History + export
   // ---------------------------
+  function historyMonthTitle(ym) {
+    const [y, m] = ym.split("-");
+    const d = new Date(Number(y), Number(m) - 1, 1);
+    return d.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+  }
+
+  function initHistoryCalendar() {
+    if (historyCalendarInited) return;
+    historyCalendarInited = true;
+
+    historyCalendarMonth = ymFromISO(todayISO());
+
+    const wrap = el("historyCalendar");
+    if (!wrap) return;
+
+    wrap.addEventListener("click", (e) => {
+      const nav = e.target.closest("[data-cal-nav]");
+      if (nav) {
+        const delta = Number(nav.dataset.calNav || 0);
+        if (Number.isFinite(delta) && delta !== 0) {
+          historyCalendarMonth = addMonths(historyCalendarMonth, delta);
+          renderHistoryCalendar();
+        }
+        return;
+      }
+
+      const dayBtn = e.target.closest("[data-date]");
+      if (!dayBtn) return;
+      const date = dayBtn.dataset.date;
+      if (!date) return;
+
+      historySelectedDate = (historySelectedDate === date) ? null : date;
+      renderHistoryCalendar();
+      renderHistory();
+    });
+  }
+
+  function renderHistoryCalendar() {
+    const wrap = el("historyCalendar");
+    if (!wrap) return;
+
+    if (!historyCalendarMonth) historyCalendarMonth = ymFromISO(todayISO());
+
+    const [yStr, mStr] = historyCalendarMonth.split("-");
+    const y = Number(yStr);
+    const m = Number(mStr);
+    const total = daysInMonth(y, m);
+    const firstOffset = weekdayMon0(new Date(y, m - 1, 1));
+    const workoutDates = new Set(history.map(h => h.date));
+
+    const weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+    const pad2 = (n) => String(n).padStart(2, "0");
+
+    let gridHtml = "";
+    for (let i = 0; i < firstOffset; i++) {
+      gridHtml += `<div class="calBlank" aria-hidden="true"></div>`;
+    }
+    for (let day = 1; day <= total; day++) {
+      const iso = `${yStr}-${mStr}-${pad2(day)}`;
+      const hasWorkout = workoutDates.has(iso);
+      const isSelected = historySelectedDate === iso;
+      const dayClass = `calDay${hasWorkout ? " hasWorkout" : ""}${isSelected ? " isSelected" : ""}`;
+      gridHtml += `
+        <button type="button" class="${dayClass}" data-date="${iso}">
+          <span class="calDayNum">${day}</span>
+          ${hasWorkout ? `<span class="calDot"></span>` : ""}
+        </button>
+      `;
+    }
+
+    wrap.innerHTML = `
+      <div class="calHeader">
+        <button type="button" class="calNavBtn" data-cal-nav="-1" aria-label="Предыдущий месяц">‹</button>
+        <div class="calTitle">${historyMonthTitle(historyCalendarMonth)}</div>
+        <button type="button" class="calNavBtn" data-cal-nav="1" aria-label="Следующий месяц">›</button>
+      </div>
+      <div class="calWeekdays">
+        ${weekdays.map(w => `<div>${w}</div>`).join("")}
+      </div>
+      <div class="calGrid">${gridHtml}</div>
+    `;
+  }
+
   function renderMonthSelect() {
     const months = Array.from(new Set(history.map(h => h.month))).sort().reverse();
     const sel = el("monthSelect");
@@ -2596,7 +2786,9 @@ el("saveSet")?.addEventListener("click", () => {
   }
 
   function renderHistory() {
+    initHistoryCalendar();
     renderMonthSelect();
+    renderHistoryCalendar();
 
     const list = el("historyList");
     if (!list) return;
@@ -2606,7 +2798,16 @@ el("saveSet")?.addEventListener("click", () => {
       return;
     }
 
-    list.innerHTML = history.slice(0, 10).map(t => {
+    const view = historySelectedDate
+      ? history.filter(h => h.date === historySelectedDate)
+      : history.slice(0, 10);
+
+    if (!view.length) {
+      list.innerHTML = `<div class="card"><div class="muted">Нет тренировок за выбранную дату.</div></div>`;
+      return;
+    }
+
+    list.innerHTML = view.map(t => {
       const body = (t.items || []).map(it => {
         const line = (it.sets || []).map(s => `${s.setNo}: ${s.weight}кг×${s.reps}`).join(" • ");
         return `<div style="margin-top:10px">
@@ -2872,6 +3073,8 @@ onAuthStateChanged(auth, async (u) => {
       PROGRAM = DEFAULT_PROGRAM;
       EX_NOTES = {};
       EX_NOTES_UPDATED_AT = null;
+      historyCalendarMonth = ymFromISO(todayISO());
+      historySelectedDate = null;
 
       setLoading(false);
       show("screenLogin", true);
