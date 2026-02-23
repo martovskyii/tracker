@@ -990,6 +990,40 @@ input:focus, select:focus, textarea:focus{
   transform: translateY(-1px);
 }
 
+/* ---------- Program editor ---------- */
+.peToolbar{ display:grid; gap:10px; }
+.peRow{ display:flex; gap:8px; align-items:center; }
+.peRow > *{ min-width:0; }
+.peGrow{ flex:1 1 auto; }
+.peMeta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.peDirty{ font-size:12px; font-weight:800; color:var(--danger); }
+.peDirty.ok{ color:var(--success); }
+.peList{ display:grid; gap:12px; margin-top:12px; }
+.peWorkout{
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:18px;
+  padding:12px;
+  background:rgba(255,255,255,.03);
+}
+.peExList{ display:grid; gap:8px; margin-top:10px; }
+.peEx{
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:14px;
+  padding:10px;
+  background:rgba(0,0,0,.12);
+}
+.peActions{ display:flex; flex-wrap:wrap; gap:6px; }
+.peTiny{ width:auto; padding:8px 10px; border-radius:12px; font-size:12px; }
+.peGrid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.peHint{ font-size:12px; color:var(--muted); }
+.peHidden{ display:none !important; }
+
 </style>
 
 
@@ -1064,6 +1098,7 @@ input:focus, select:focus, textarea:focus{
       <div class="tabs">
         <div class="tab active" data-tab="dashboard">Главная</div>
         <div class="tab" data-tab="select">Тренировки</div>
+        <div class="tab" data-tab="program">Программа</div>
         <div class="tab" data-tab="history">История</div>
         <div class="tab" data-tab="progress">Прогресс</div>
         <div class="tab" data-tab="admin" id="adminTabBtn" style="display:none;">Админ</div>
@@ -1172,6 +1207,15 @@ input:focus, select:focus, textarea:focus{
         </div>
 
 <div class="grid3" id="workoutList"></div>
+      </div>
+
+      <!-- PROGRAM -->
+      <div id="tab-program" class="tabpane" style="display:none;">
+        <div class="card">
+          <h2>Программа</h2>
+          <div class="muted">Редактор твоей программы (только твой профиль).</div>
+          <div id="programEditorSelf"></div>
+        </div>
       </div>
 
       <!-- WORKOUT -->
@@ -1305,12 +1349,8 @@ input:focus, select:focus, textarea:focus{
               <button class="btn secondary" id="adminLoadBtn">Загрузить</button>
               <button class="btn secondary" id="adminCopyDefaultBtn">Скопировать дефолт</button>
             </div>
-            <button class="btn primary" id="adminSaveBtn">Сохранить</button>
           </div>
-
-          <label style="margin-top:12px;">Program JSON</label>
-          <textarea id="adminProgramJson" rows="16"></textarea>
-
+          <div id="programEditorAdmin"></div>
           <div class="alert" id="adminStatus" style="display:none;"></div>
         </div>
       </div>
@@ -1422,6 +1462,29 @@ input:focus, select:focus, textarea:focus{
   let EX_NOTES = {}; // { [exerciseName]: string }
   let EX_NOTES_UPDATED_AT = null;
   let exNoteSaveTimer = null;
+  let programIdSeq = 1;
+  const PROGRAM_EDITORS = {
+    self: {
+      key: "self",
+      targetUid: null,
+      ui: null,
+      filter: "",
+      dirty: false,
+      loadedAt: 0,
+      status: "",
+      statusError: false
+    },
+    admin: {
+      key: "admin",
+      targetUid: "",
+      ui: null,
+      filter: "",
+      dirty: false,
+      loadedAt: 0,
+      status: "",
+      statusError: false
+    }
+  };
 
   // ---------------------------
 // Helpers
@@ -1527,6 +1590,11 @@ function setLoading(on, text = "Загрузка") {
 function adminMsg(text, isError = false) {
   const box = el("adminStatus");
   if (!box) return;
+  if (!text) {
+    box.style.display = "none";
+    box.innerHTML = "";
+    return;
+  }
   box.style.display = "";
   box.innerHTML = isError ? `<b>Ошибка:</b> ${text}` : text;
 }
@@ -1995,6 +2063,9 @@ async function deleteBodyWeeklyByMonday(dateISO) {
   // Firestore: program
   // ---------------------------
   async function loadProgramDoc(uid) {
+    if (!user) throw new Error("not-authenticated");
+    if (!uid) throw new Error("missing-uid");
+    if (uid !== user.uid && !isAdminLocal()) throw new Error("forbidden-program-read");
     const ref = doc(db, "users", uid, "config", "program");
     const snap = await getDoc(ref);
     if (!snap.exists()) return null;
@@ -2003,6 +2074,9 @@ async function deleteBodyWeeklyByMonday(dateISO) {
   }
 
   async function saveProgramDoc(uid, programObj) {
+    if (!user) throw new Error("not-authenticated");
+    if (!uid) throw new Error("missing-uid");
+    if (uid !== user.uid && !isAdminLocal()) throw new Error("forbidden-program-write");
     const ref = doc(db, "users", uid, "config", "program");
     await setDoc(ref, {
       program: programObj,
@@ -2026,6 +2100,306 @@ async function deleteBodyWeeklyByMonday(dateISO) {
         if (!ex.video) ex.video = "https://drive.google.com/";
         if (!ex.machine) ex.machine = "";
       }
+    }
+    return null;
+  }
+
+  function nextProgramId(prefix = "id") {
+    programIdSeq += 1;
+    return `${prefix}_${Date.now().toString(36)}_${programIdSeq.toString(36)}`;
+  }
+
+  function cloneJson(v) {
+    return JSON.parse(JSON.stringify(v));
+  }
+
+  function legacyProgramToUI(legacy) {
+    const base = legacy && typeof legacy === "object" && !Array.isArray(legacy) ? legacy : {};
+    const workouts = Object.keys(base).map((title) => ({
+      id: nextProgramId("w"),
+      title: String(title || "").trim(),
+      subtitle: "",
+      exercises: (Array.isArray(base[title]) ? base[title] : []).map((ex) => ({
+        id: nextProgramId("e"),
+        name: String(ex?.name || "").trim(),
+        scheme: String(ex?.scheme || "").trim(),
+        video: String(ex?.video || "").trim(),
+        machine: String(ex?.machine || "").trim()
+      }))
+    }));
+    return { workouts };
+  }
+
+  function programUIToLegacy(ui) {
+    const out = {};
+    for (const w of (ui?.workouts || [])) {
+      const title = String(w?.title || "").trim();
+      if (!title) continue;
+      out[title] = (w?.exercises || []).map((ex) => ({
+        name: String(ex?.name || "").trim(),
+        scheme: String(ex?.scheme || "").trim(),
+        video: String(ex?.video || "").trim() || "https://drive.google.com/",
+        machine: String(ex?.machine || "").trim()
+      }));
+    }
+    return out;
+  }
+
+  function validateProgramUI(programUI) {
+    if (!programUI || typeof programUI !== "object" || Array.isArray(programUI)) return "ProgramUI должен быть объектом";
+    if (!Array.isArray(programUI.workouts)) return "ProgramUI.workouts должен быть массивом";
+    if (!programUI.workouts.length) return "Добавь хотя бы одну тренировку";
+
+    const titleSet = new Set();
+    for (let wi = 0; wi < programUI.workouts.length; wi++) {
+      const w = programUI.workouts[wi];
+      if (!w || typeof w !== "object") return `Тренировка #${wi + 1} повреждена`;
+      if (!Array.isArray(w.exercises)) return `У тренировки #${wi + 1} exercises должен быть массивом`;
+      const title = String(w.title || "").trim();
+      if (!title) return `У тренировки #${wi + 1} пустое название`;
+      const key = title.toLowerCase();
+      if (titleSet.has(key)) return `Повтор названия тренировки: "${title}"`;
+      titleSet.add(key);
+
+      for (let ei = 0; ei < w.exercises.length; ei++) {
+        const ex = w.exercises[ei];
+        if (!ex || typeof ex !== "object") return `Тренировка "${title}": упражнение #${ei + 1} повреждено`;
+        if (!String(ex.name || "").trim()) return `Тренировка "${title}": заполни name у упражнения #${ei + 1}`;
+        if (!String(ex.scheme || "").trim()) return `Тренировка "${title}": заполни scheme у упражнения #${ei + 1}`;
+        for (const field of ["video", "machine"]) {
+          const url = String(ex[field] || "").trim();
+          if (url && !/^https?:\/\//i.test(url)) {
+            return `Тренировка "${title}": поле ${field} у "${ex.name || ("#" + (ei + 1))}" должно начинаться с http/https`;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  function resetProgramEditorState(key) {
+    const st = PROGRAM_EDITORS[key];
+    if (!st) return;
+    st.targetUid = key === "self" ? (user?.uid || null) : (el("adminUserSelect")?.value || "");
+    st.ui = null;
+    st.filter = "";
+    st.dirty = false;
+    st.loadedAt = 0;
+    st.status = "";
+    st.statusError = false;
+  }
+
+  function programEditorRootId(key) {
+    return key === "admin" ? "programEditorAdmin" : "programEditorSelf";
+  }
+
+  function setProgramEditorStatus(key, text, isError = false) {
+    const st = PROGRAM_EDITORS[key];
+    if (!st) return;
+    st.status = text || "";
+    st.statusError = !!isError;
+    renderProgramEditor(key);
+    if (key === "admin") adminMsg(text || "", isError);
+  }
+
+  function markProgramEditorDirty(key, dirty = true) {
+    const st = PROGRAM_EDITORS[key];
+    if (!st) return;
+    st.dirty = !!dirty;
+    if (dirty) {
+      st.status = "";
+      st.statusError = false;
+      if (key === "admin") adminMsg("");
+    }
+  }
+
+  function refreshProgramEditorDirtyUi(key) {
+    const root = el(programEditorRootId(key));
+    if (!root) return;
+    const st = PROGRAM_EDITORS[key];
+    const badge = root.querySelector(".peDirty");
+    if (badge) {
+      badge.textContent = st?.dirty ? "Несохранённые изменения" : "Сохранено";
+      badge.classList.toggle("ok", !st?.dirty);
+    }
+    if (!st?.status) {
+      const alertBox = root.querySelector(".alert");
+      if (alertBox) alertBox.remove();
+    }
+  }
+
+  function ensureProgramEditorLoaded(key) {
+    const st = PROGRAM_EDITORS[key];
+    if (!st) return;
+    if (key === "self" && user && st.targetUid !== user.uid) {
+      st.targetUid = user.uid;
+      st.ui = legacyProgramToUI(PROGRAM || DEFAULT_PROGRAM);
+      st.filter = "";
+      st.dirty = false;
+      st.status = "";
+      st.statusError = false;
+      st.loadedAt = Date.now();
+    }
+    if (key === "self" && !st.ui) {
+      st.targetUid = user?.uid || null;
+      st.ui = legacyProgramToUI(PROGRAM || DEFAULT_PROGRAM);
+      st.loadedAt = Date.now();
+      st.dirty = false;
+    }
+  }
+
+  function getProgramEditorFilteredStats(st) {
+    const q = String(st.filter || "").trim().toLowerCase();
+    let visibleWorkouts = 0;
+    let visibleExercises = 0;
+    for (const w of (st.ui?.workouts || [])) {
+      const wMatch = !q || String(w.title || "").toLowerCase().includes(q);
+      let anyEx = false;
+      for (const ex of (w.exercises || [])) {
+        const exMatch = !q || [ex.name, ex.scheme, ex.video, ex.machine].some(v => String(v || "").toLowerCase().includes(q));
+        if (exMatch) {
+          visibleExercises += 1;
+          anyEx = true;
+        }
+      }
+      if (wMatch || anyEx) visibleWorkouts += 1;
+    }
+    return { visibleWorkouts, visibleExercises };
+  }
+
+  function renderProgramEditor(key) {
+    const st = PROGRAM_EDITORS[key];
+    const root = el(programEditorRootId(key));
+    if (!st || !root) return;
+    ensureProgramEditorLoaded(key);
+
+    const isAdminEditor = key === "admin";
+    const canUse = isAdminEditor ? isAdminLocal() : !!user;
+    if (!canUse) {
+      root.innerHTML = `<div class="muted">${isAdminEditor ? "Нет доступа." : "Войди в аккаунт."}</div>`;
+      return;
+    }
+    if (!st.ui) {
+      root.innerHTML = `<div class="muted">Программа не загружена.</div>`;
+      return;
+    }
+
+    const q = String(st.filter || "").trim().toLowerCase();
+    const stat = getProgramEditorFilteredStats(st);
+    const targetLabel = isAdminEditor ? (st.targetUid || "—") : (user?.uid || "—");
+
+    const workoutsHtml = (st.ui.workouts || []).map((w, wi) => {
+      const workoutMatch = !q || String(w.title || "").toLowerCase().includes(q);
+      const exHtml = (w.exercises || []).map((ex, ei) => {
+        const exMatch = !q || [ex.name, ex.scheme, ex.video, ex.machine].some(v => String(v || "").toLowerCase().includes(q));
+        const hidden = (!workoutMatch && !exMatch) ? " peHidden" : "";
+        return `
+          <div class="peEx${hidden}" data-ex-id="${escapeHtml(ex.id)}">
+            <div class="peActions" style="margin-bottom:8px;">
+              <button type="button" class="btn secondary peTiny" data-pe-act="move-ex-up" ${ei === 0 ? "disabled" : ""}>↑</button>
+              <button type="button" class="btn secondary peTiny" data-pe-act="move-ex-down" ${ei === (w.exercises.length - 1) ? "disabled" : ""}>↓</button>
+              <button type="button" class="btn secondary peTiny" data-pe-act="dup-ex">Дубль</button>
+              <button type="button" class="btn secondary peTiny" data-pe-act="del-ex" style="border-color:rgba(255,107,107,.35);color:var(--danger);">Удалить</button>
+            </div>
+            <label>Название упражнения</label>
+            <input data-pe-field="name" value="${escapeHtml(ex.name)}" placeholder="Например: Жим ногами" />
+            <label>Схема</label>
+            <input data-pe-field="scheme" value="${escapeHtml(ex.scheme)}" placeholder="4×12" />
+            <div class="peGrid2">
+              <div>
+                <label>Видео (URL)</label>
+                <input data-pe-field="video" value="${escapeHtml(ex.video)}" placeholder="https://..." />
+              </div>
+              <div>
+                <label>Тренажёр (URL)</label>
+                <input data-pe-field="machine" value="${escapeHtml(ex.machine)}" placeholder="https://..." />
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      const anyVisibleEx = (w.exercises || []).some(ex => !q || [ex.name, ex.scheme, ex.video, ex.machine].some(v => String(v || "").toLowerCase().includes(q)));
+      const hideWorkout = (!workoutMatch && !anyVisibleEx) ? " peHidden" : "";
+
+      return `
+        <div class="peWorkout${hideWorkout}" data-workout-id="${escapeHtml(w.id)}">
+          <div class="peMeta">
+            <div class="peActions">
+              <button type="button" class="btn secondary peTiny" data-pe-act="move-workout-up" ${wi === 0 ? "disabled" : ""}>↑</button>
+              <button type="button" class="btn secondary peTiny" data-pe-act="move-workout-down" ${wi === (st.ui.workouts.length - 1) ? "disabled" : ""}>↓</button>
+              <button type="button" class="btn secondary peTiny" data-pe-act="dup-workout">Дубль</button>
+              <button type="button" class="btn secondary peTiny" data-pe-act="del-workout" style="border-color:rgba(255,107,107,.35);color:var(--danger);">Удалить</button>
+            </div>
+            <div class="peHint">${(w.exercises || []).length} упражнений</div>
+          </div>
+          <label>Название тренировки</label>
+          <input data-pe-field="workout-title" value="${escapeHtml(w.title)}" placeholder="Например: Вверх" />
+          <div class="peExList">
+            ${exHtml || `<div class="muted">Нет упражнений</div>`}
+          </div>
+          <div class="peActions" style="margin-top:10px;">
+            <button type="button" class="btn secondary peTiny" data-pe-act="add-ex">+ Упражнение</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    root.innerHTML = `
+      <div class="peToolbar" data-program-editor="${key}">
+        <div class="peRow">
+          <input class="peGrow" id="peFilter-${key}" value="${escapeHtml(st.filter)}" placeholder="Поиск по тренировкам и упражнениям" />
+          <button type="button" class="btn secondary peTiny" data-pe-global="clear-filter">Сброс</button>
+        </div>
+        <div class="peMeta">
+          <div class="peHint">${isAdminEditor ? `UID: ${escapeHtml(targetLabel)}` : "Редактируется только твоя программа"} · ${stat.visibleWorkouts}/${st.ui.workouts.length} тренировок · ${stat.visibleExercises} упражнений</div>
+          <div class="peDirty ${st.dirty ? "" : "ok"}">${st.dirty ? "Несохранённые изменения" : "Сохранено"}</div>
+        </div>
+        <div class="peActions">
+          <button type="button" class="btn secondary peTiny" data-pe-global="add-workout">+ Тренировка</button>
+          <button type="button" class="btn secondary peTiny" data-pe-global="copy-default">Скопировать дефолт</button>
+          <button type="button" class="btn primary peTiny" data-pe-global="save">Сохранить</button>
+        </div>
+        ${st.status ? `<div class="alert" style="display:block;">${st.statusError ? `<b>Ошибка:</b> ` : ""}${escapeHtml(st.status)}</div>` : ``}
+        <div class="peList">${workoutsHtml || `<div class="muted">Пока нет тренировок. Нажми «+ Тренировка».</div>`}</div>
+      </div>
+    `;
+  }
+
+  function renderProgramEditors() {
+    renderProgramEditor("self");
+    if (isAdminLocal()) renderProgramEditor("admin");
+  }
+
+  function withProgramEditorMutation(key, mutator, undoMessage = "") {
+    const st = PROGRAM_EDITORS[key];
+    if (!st?.ui) return;
+    const before = cloneJson(st.ui);
+    mutator(st.ui);
+    markProgramEditorDirty(key, true);
+    renderProgramEditor(key);
+    if (undoMessage) {
+      showUndoToast(undoMessage, {
+        undo: () => {
+          st.ui = before;
+          st.dirty = true;
+          st.status = "";
+          st.statusError = false;
+          renderProgramEditor(key);
+        }
+      });
+    }
+  }
+
+  function findWorkoutIndexById(st, workoutId) {
+    return (st.ui?.workouts || []).findIndex(w => w.id === workoutId);
+  }
+
+  function findExerciseRefById(st, exId) {
+    for (let wi = 0; wi < (st.ui?.workouts || []).length; wi++) {
+      const w = st.ui.workouts[wi];
+      const ei = (w.exercises || []).findIndex(ex => ex.id === exId);
+      if (ei >= 0) return { wi, ei, workout: w, ex: w.exercises[ei] };
     }
     return null;
   }
@@ -2072,7 +2446,7 @@ async function deleteBodyWeeklyByMonday(dateISO) {
   // ---------------------------
   // Tabs
   // ---------------------------
-  const TABS = ["dashboard", "select", "workout", "history", "progress", "admin"];
+  const TABS = ["dashboard", "select", "program", "workout", "history", "progress", "admin"];
 
   function setActiveTabUI(tab) {
     activeTab = tab;
@@ -2100,6 +2474,13 @@ async function deleteBodyWeeklyByMonday(dateISO) {
       if (tab === "admin") {
         if (!isAdminLocal()) return;
         setActiveTabUI("admin");
+        renderProgramEditor("admin");
+        return;
+      }
+
+      if (tab === "program") {
+        setActiveTabUI("program");
+        renderProgramEditor("self");
         return;
       }
 
@@ -2183,7 +2564,7 @@ async function deleteBodyWeeklyByMonday(dateISO) {
     if (!names.length) {
       wrap.innerHTML = `
         <div class="card">
-          <div class="muted">Нет тренировок в программе. Добавь через Админ → Program JSON.</div>
+          <div class="muted">Нет тренировок в программе. Открой вкладку «Программа» и добавь тренировку.</div>
         </div>
       `;
       return;
@@ -2999,58 +3380,318 @@ function renderProgress() {
   // ---------------------------
   // Admin
   // ---------------------------
-  el("adminLoadBtn")?.addEventListener("click", async () => {
-    if (!isAdminLocal()) return adminMsg("Нет доступа", true);
+  async function loadProgramIntoEditor(key, uid, { fallbackDefault = false } = {}) {
+    const st = PROGRAM_EDITORS[key];
+    if (!st) return;
 
-    const sel = el("adminUserSelect");
-    const targetUid = sel ? sel.value : "";
-    const program = await loadProgramDoc(targetUid);
+    try {
+      const program = await loadProgramDoc(uid);
+      if (!program) {
+        if (fallbackDefault) {
+          st.targetUid = uid;
+          st.ui = legacyProgramToUI(DEFAULT_PROGRAM);
+          st.dirty = true;
+          st.loadedAt = Date.now();
+          setProgramEditorStatus(key, "Программа не найдена. Подставлен дефолт (ещё не сохранено).");
+          return;
+        }
+        st.targetUid = uid;
+        st.ui = legacyProgramToUI({ "Новая тренировка": [] });
+        st.dirty = false;
+        st.loadedAt = Date.now();
+        setProgramEditorStatus(key, "У пользователя нет программы. Можно заполнить и сохранить.");
+        return;
+      }
+      const err = validateProgramShape(program);
+      if (err) {
+        st.targetUid = uid;
+        st.ui = legacyProgramToUI(DEFAULT_PROGRAM);
+        st.dirty = true;
+        st.loadedAt = Date.now();
+        setProgramEditorStatus(key, `Получена некорректная программа: ${err}. Загружен дефолт для исправления.`, true);
+        return;
+      }
+      st.targetUid = uid;
+      st.ui = legacyProgramToUI(program);
+      st.dirty = false;
+      st.loadedAt = Date.now();
+      setProgramEditorStatus(key, "Загружено.");
+    } catch (e) {
+      console.error(e);
+      setProgramEditorStatus(key, "Не удалось загрузить (проверь Rules/доступ).", true);
+    }
+  }
 
-    if (!program) {
-      const ta = el("adminProgramJson");
-      if (ta) ta.value = "";
-      return adminMsg("У пользователя нет сохранённой программы. Нажми «Скопировать дефолт» и «Сохранить».");
+  async function saveProgramFromEditor(key) {
+    const st = PROGRAM_EDITORS[key];
+    if (!st?.ui) return;
+    const targetUid = key === "self" ? user?.uid : st.targetUid;
+    if (!targetUid) return setProgramEditorStatus(key, "Не выбран пользователь.", true);
+    if (key === "admin" && !isAdminLocal()) return setProgramEditorStatus(key, "Нет доступа.", true);
+
+    const uiErr = validateProgramUI(st.ui);
+    if (uiErr) return setProgramEditorStatus(key, uiErr, true);
+
+    const legacy = programUIToLegacy(st.ui);
+    const legacyErr = validateProgramShape(legacy);
+    if (legacyErr) return setProgramEditorStatus(key, legacyErr, true);
+
+    try {
+      await saveProgramDoc(targetUid, legacy);
+      st.dirty = false;
+      st.loadedAt = Date.now();
+      setProgramEditorStatus(key, "Сохранено в Firestore.");
+
+      if (user && targetUid === user.uid) {
+        PROGRAM = legacy;
+        PROGRAM_EDITORS.self.targetUid = user.uid;
+        PROGRAM_EDITORS.self.ui = legacyProgramToUI(PROGRAM);
+        PROGRAM_EDITORS.self.filter = PROGRAM_EDITORS.self.filter || "";
+        PROGRAM_EDITORS.self.dirty = false;
+        PROGRAM_EDITORS.self.loadedAt = Date.now();
+        renderProgramEditor("self");
+        renderWorkoutSelect();
+        if (activeTab === "workout") renderExercise();
+        renderDashboard();
+      }
+    } catch (e) {
+      console.error(e);
+      setProgramEditorStatus(key, "Не удалось сохранить (проверь Rules).", true);
+    }
+  }
+
+  function handleProgramEditorGlobalAction(key, act) {
+    const st = PROGRAM_EDITORS[key];
+    if (!st?.ui) return;
+    if (key === "admin" && !isAdminLocal()) return;
+
+    if (act === "clear-filter") {
+      st.filter = "";
+      renderProgramEditor(key);
+      return;
     }
 
-    el("adminProgramJson").value = JSON.stringify(program, null, 2);
-    adminMsg("Загружено.");
+    if (act === "add-workout") {
+      withProgramEditorMutation(key, (ui) => {
+        ui.workouts.push({
+          id: nextProgramId("w"),
+          title: "Новая тренировка",
+          subtitle: "",
+          exercises: [{
+            id: nextProgramId("e"),
+            name: "Новое упражнение",
+            scheme: "3×12",
+            video: "",
+            machine: ""
+          }]
+        });
+      });
+      return;
+    }
+
+    if (act === "copy-default") {
+      const ok = confirmDelete("Заменить текущий редактор дефолтной программой? Несохранённые изменения пропадут.");
+      if (!ok) return;
+      st.ui = legacyProgramToUI(DEFAULT_PROGRAM);
+      st.dirty = true;
+      st.status = "";
+      st.statusError = false;
+      renderProgramEditor(key);
+      return;
+    }
+
+    if (act === "save") {
+      saveProgramFromEditor(key);
+    }
+  }
+
+  function handleProgramEditorItemAction(key, button) {
+    const st = PROGRAM_EDITORS[key];
+    if (!st?.ui) return;
+    if (key === "admin" && !isAdminLocal()) return;
+
+    const act = button.dataset.peAct;
+    const exNode = button.closest("[data-ex-id]");
+    const workoutNode = button.closest("[data-workout-id]");
+    const workoutId = workoutNode?.dataset?.workoutId;
+    const exId = exNode?.dataset?.exId;
+
+    if (!act) return;
+
+    if (act.startsWith("move-workout") || act === "dup-workout" || act === "del-workout" || act === "add-ex") {
+      const wi = findWorkoutIndexById(st, workoutId);
+      if (wi < 0) return;
+
+      if (act === "move-workout-up" && wi > 0) {
+        withProgramEditorMutation(key, (ui) => {
+          const arr = ui.workouts;
+          [arr[wi - 1], arr[wi]] = [arr[wi], arr[wi - 1]];
+        });
+        return;
+      }
+      if (act === "move-workout-down" && wi < st.ui.workouts.length - 1) {
+        withProgramEditorMutation(key, (ui) => {
+          const arr = ui.workouts;
+          [arr[wi + 1], arr[wi]] = [arr[wi], arr[wi + 1]];
+        });
+        return;
+      }
+      if (act === "dup-workout") {
+        withProgramEditorMutation(key, (ui) => {
+          const src = ui.workouts[wi];
+          const copy = {
+            id: nextProgramId("w"),
+            title: `${src.title || "Тренировка"} (копия)`,
+            subtitle: src.subtitle || "",
+            exercises: (src.exercises || []).map(ex => ({ ...cloneJson(ex), id: nextProgramId("e") }))
+          };
+          ui.workouts.splice(wi + 1, 0, copy);
+        });
+        return;
+      }
+      if (act === "del-workout") {
+        const title = st.ui.workouts[wi]?.title || "тренировку";
+        if (!confirmDelete(`Удалить тренировку "${title}"?`)) return;
+        withProgramEditorMutation(key, (ui) => {
+          ui.workouts.splice(wi, 1);
+        }, `Тренировка "${title}" удалена`);
+        return;
+      }
+      if (act === "add-ex") {
+        withProgramEditorMutation(key, (ui) => {
+          ui.workouts[wi].exercises.push({
+            id: nextProgramId("e"),
+            name: "Новое упражнение",
+            scheme: "3×12",
+            video: "",
+            machine: ""
+          });
+        });
+        return;
+      }
+    }
+
+    if (act.startsWith("move-ex") || act === "dup-ex" || act === "del-ex") {
+      const ref = findExerciseRefById(st, exId);
+      if (!ref) return;
+      const { wi, ei } = ref;
+      if (act === "move-ex-up" && ei > 0) {
+        withProgramEditorMutation(key, (ui) => {
+          const arr = ui.workouts[wi].exercises;
+          [arr[ei - 1], arr[ei]] = [arr[ei], arr[ei - 1]];
+        });
+        return;
+      }
+      if (act === "move-ex-down" && ei < st.ui.workouts[wi].exercises.length - 1) {
+        withProgramEditorMutation(key, (ui) => {
+          const arr = ui.workouts[wi].exercises;
+          [arr[ei + 1], arr[ei]] = [arr[ei], arr[ei + 1]];
+        });
+        return;
+      }
+      if (act === "dup-ex") {
+        withProgramEditorMutation(key, (ui) => {
+          const src = ui.workouts[wi].exercises[ei];
+          ui.workouts[wi].exercises.splice(ei + 1, 0, {
+            ...cloneJson(src),
+            id: nextProgramId("e"),
+            name: `${src.name || "Упражнение"} (копия)`
+          });
+        });
+        return;
+      }
+      if (act === "del-ex") {
+        const exName = st.ui.workouts[wi].exercises[ei]?.name || "упражнение";
+        if (!confirmDelete(`Удалить упражнение "${exName}"?`)) return;
+        withProgramEditorMutation(key, (ui) => {
+          ui.workouts[wi].exercises.splice(ei, 1);
+        }, `Упражнение "${exName}" удалено`);
+      }
+    }
+  }
+
+  function bindProgramEditorRoot(key) {
+    const root = el(programEditorRootId(key));
+    if (!root) return;
+
+    root.addEventListener("click", (e) => {
+      const globalBtn = e.target.closest("[data-pe-global]");
+      if (globalBtn) {
+        haptic();
+        handleProgramEditorGlobalAction(key, globalBtn.dataset.peGlobal);
+        return;
+      }
+      const itemBtn = e.target.closest("[data-pe-act]");
+      if (itemBtn) {
+        haptic();
+        handleProgramEditorItemAction(key, itemBtn);
+      }
+    });
+
+    root.addEventListener("input", (e) => {
+      const st = PROGRAM_EDITORS[key];
+      if (!st?.ui) return;
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement)) return;
+
+      if (t.id === `peFilter-${key}`) {
+        st.filter = t.value || "";
+        renderProgramEditor(key);
+        return;
+      }
+
+      const field = t.dataset.peField;
+      if (!field) return;
+      if (key === "admin" && !isAdminLocal()) return;
+
+      const exNode = t.closest("[data-ex-id]");
+      const workoutNode = t.closest("[data-workout-id]");
+
+      if (field === "workout-title" && workoutNode?.dataset?.workoutId) {
+        const wi = findWorkoutIndexById(st, workoutNode.dataset.workoutId);
+        if (wi >= 0) {
+          st.ui.workouts[wi].title = t.value;
+          markProgramEditorDirty(key, true);
+          refreshProgramEditorDirtyUi(key);
+        }
+        return;
+      }
+
+      if (exNode?.dataset?.exId) {
+        const ref = findExerciseRefById(st, exNode.dataset.exId);
+        if (!ref) return;
+        if (["name", "scheme", "video", "machine"].includes(field)) {
+          ref.ex[field] = t.value;
+          markProgramEditorDirty(key, true);
+          refreshProgramEditorDirtyUi(key);
+        }
+      }
+    });
+  }
+
+  bindProgramEditorRoot("self");
+  bindProgramEditorRoot("admin");
+
+  el("adminLoadBtn")?.addEventListener("click", async () => {
+    if (!isAdminLocal()) return adminMsg("Нет доступа", true);
+    const targetUid = el("adminUserSelect")?.value || "";
+    if (!targetUid) return adminMsg("Выбери пользователя", true);
+    await loadProgramIntoEditor("admin", targetUid);
   });
 
   el("adminCopyDefaultBtn")?.addEventListener("click", () => {
     if (!isAdminLocal()) return adminMsg("Нет доступа", true);
-    el("adminProgramJson").value = JSON.stringify(DEFAULT_PROGRAM, null, 2);
-    adminMsg("Дефолт вставлен. Правь JSON и жми «Сохранить».");
+    handleProgramEditorGlobalAction("admin", "copy-default");
+    adminMsg("Дефолт вставлен в визуальный редактор. Нажми «Сохранить» в редакторе.");
   });
 
-  el("adminSaveBtn")?.addEventListener("click", async () => {
-    if (!isAdminLocal()) return adminMsg("Нет доступа", true);
-
-    const targetUid = el("adminUserSelect").value;
-    const raw = el("adminProgramJson").value.trim();
-    if (!raw) return adminMsg("Пустой JSON", true);
-
-    let programObj;
-    try {
-      programObj = JSON.parse(raw);
-    } catch (e) {
-      return adminMsg("JSON не парсится. Проверь запятые/кавычки.", true);
-    }
-
-    const err = validateProgramShape(programObj);
-    if (err) return adminMsg(err, true);
-
-    try {
-      await saveProgramDoc(targetUid, programObj);
-      adminMsg("Сохранено в Firestore.");
-
-      if (user && targetUid === user.uid) {
-        PROGRAM = programObj;
-      }
-      renderWorkoutSelect();
-    } catch (e) {
-      console.error(e);
-      adminMsg("Не удалось сохранить (проверь Rules).", true);
-    }
+  el("adminUserSelect")?.addEventListener("change", () => {
+    if (!isAdminLocal()) return;
+    const st = PROGRAM_EDITORS.admin;
+    st.targetUid = el("adminUserSelect")?.value || "";
+    st.status = "";
+    st.statusError = false;
+    renderProgramEditor("admin");
   });
 
  await setPersistence(auth, browserLocalPersistence);
@@ -3071,6 +3712,8 @@ onAuthStateChanged(auth, async (u) => {
       profile = null;
       history = [];
       PROGRAM = DEFAULT_PROGRAM;
+      resetProgramEditorState("self");
+      resetProgramEditorState("admin");
       EX_NOTES = {};
       EX_NOTES_UPDATED_AT = null;
       historyCalendarMonth = ymFromISO(todayISO());
@@ -3091,6 +3734,21 @@ onAuthStateChanged(auth, async (u) => {
       loaded = DEFAULT_PROGRAM;
     }
     PROGRAM = loaded;
+    PROGRAM_EDITORS.self.targetUid = user.uid;
+    PROGRAM_EDITORS.self.ui = legacyProgramToUI(PROGRAM);
+    PROGRAM_EDITORS.self.filter = PROGRAM_EDITORS.self.filter || "";
+    PROGRAM_EDITORS.self.dirty = false;
+    PROGRAM_EDITORS.self.status = "";
+    PROGRAM_EDITORS.self.statusError = false;
+    PROGRAM_EDITORS.self.loadedAt = Date.now();
+
+    PROGRAM_EDITORS.admin.targetUid = el("adminUserSelect")?.value || "";
+    PROGRAM_EDITORS.admin.ui = isAdminLocal() ? legacyProgramToUI(PROGRAM) : null;
+    PROGRAM_EDITORS.admin.filter = PROGRAM_EDITORS.admin.filter || "";
+    PROGRAM_EDITORS.admin.dirty = false;
+    PROGRAM_EDITORS.admin.status = "";
+    PROGRAM_EDITORS.admin.statusError = false;
+    PROGRAM_EDITORS.admin.loadedAt = Date.now();
 
     // profile
     const ref = doc(db, "users", user.uid);
@@ -3121,6 +3779,8 @@ onAuthStateChanged(auth, async (u) => {
 
     setActiveTabUI("dashboard");
     renderWorkoutSelect();
+    renderProgramEditor("self");
+    if (isAdminLocal()) renderProgramEditor("admin");
     renderDashboard();
     renderHistory();
     renderProgress();
@@ -3133,6 +3793,8 @@ onAuthStateChanged(auth, async (u) => {
     show("screenLogin", true);
     show("screenApp", false);
     setSub("Вход");
+    resetProgramEditorState("self");
+    resetProgramEditorState("admin");
   }
 });
 
@@ -3202,7 +3864,7 @@ setSub("Загрузка…");
 
   // порядок свайпа
   function getSwipeTabsOrder(){
-    const base = ["dashboard", "select", "history", "progress"];
+    const base = ["dashboard", "select", "program", "history", "progress"];
     if (isAdminLocal()) base.push("admin"); // админ только для админа
     return base;
   }
@@ -3391,8 +4053,9 @@ setSub("Загрузка…");
         if (nextTab === "history") { setActiveTabUI("history"); renderHistory(); cleanup(true); return; }
         if (nextTab === "progress") { setActiveTabUI("progress"); renderProgress(); cleanup(true); return; }
         if (nextTab === "select") { setActiveTabUI("select"); renderWorkoutSelect(); cleanup(true); return; }
+        if (nextTab === "program") { setActiveTabUI("program"); renderProgramEditor("self"); cleanup(true); return; }
         if (nextTab === "dashboard") { setActiveTabUI("dashboard"); renderDashboard(); cleanup(true); return; }
-        if (nextTab === "admin") { setActiveTabUI("admin"); cleanup(true); return; }
+        if (nextTab === "admin") { setActiveTabUI("admin"); renderProgramEditor("admin"); cleanup(true); return; }
       }
       cleanup(false);
     };
@@ -3422,6 +4085,33 @@ setSub("Загрузка…");
   root.addEventListener("touchcancel", onEnd, { passive: true });
 })();
 
+/*
+Firestore Rules snippet (paste into Firebase Rules):
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { return isSignedIn() && request.auth.uid == "TJ4cLJ0pVgb0dkh2R6IDdDS8k6F2"; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function isOwnerOrAdmin(uid) { return isOwner(uid) || isAdmin(); }
+
+    match /users/{uid} {
+      allow read, write: if isOwnerOrAdmin(uid);
+
+      match /config/program {
+        allow read: if isOwnerOrAdmin(uid);
+        allow write: if isOwnerOrAdmin(uid);
+      }
+
+      // keep your existing rules for other subcollections/docs if needed
+      match /{document=**} {
+        allow read, write: if isOwnerOrAdmin(uid);
+      }
+    }
+  }
+}
+*/
 
 </script>
 
