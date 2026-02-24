@@ -628,6 +628,106 @@ body{
   cursor:pointer;
 }
 
+/* --- Finish success overlay --- */
+.successOverlay{
+  position:fixed;
+  inset:0;
+  z-index:100000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(7,7,8,.62);
+  backdrop-filter: blur(2px);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease;
+}
+.successOverlay.show{
+  display:flex;
+  opacity:1;
+  pointer-events:auto;
+}
+.successOverlayCard{
+  position:relative;
+  width:min(92vw, 360px);
+  border-radius:22px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(18,18,20,.92);
+  box-shadow:0 18px 48px rgba(0,0,0,.38);
+  padding:20px 18px 18px;
+  text-align:center;
+  overflow:hidden;
+}
+[data-theme="pink"] .successOverlayCard{
+  background:rgba(26,18,25,.92);
+  border-color:rgba(255,62,168,.14);
+}
+.successOverlayCanvas{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+}
+.successCheckWrap{
+  width:86px;
+  height:86px;
+  margin:2px auto 10px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  transform:scale(.96);
+  opacity:.9;
+  transition:transform .2s ease, opacity .2s ease;
+}
+.successOverlay.show .successCheckWrap{
+  transform:scale(1);
+  opacity:1;
+}
+.successCheck{
+  width:54px;
+  height:54px;
+}
+.successCheck circle,
+.successCheck path{
+  fill:none;
+  stroke:var(--success);
+  stroke-width:4;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.successCheck circle{
+  stroke:rgba(50,213,131,.42);
+}
+.successCheck path{
+  stroke-dasharray:36;
+  stroke-dashoffset:36;
+}
+.successOverlay.show .successCheck path{
+  animation:successCheckDraw .38s cubic-bezier(.22,.61,.36,1) .08s forwards;
+}
+.successTitle{
+  font-size:20px;
+  font-weight:900;
+  margin:0;
+}
+.successSub{
+  margin-top:6px;
+  font-size:13px;
+  color:var(--muted);
+}
+@keyframes successCheckDraw{
+  to { stroke-dashoffset:0; }
+}
+@media (prefers-reduced-motion: reduce){
+  .successOverlay{ transition:none; }
+  .successCheckWrap{ transition:none; transform:none; }
+  .successOverlay.show .successCheck path{ animation:none; stroke-dashoffset:0; }
+}
+
 
 /* FIX iOS: inputs in grid may overflow (especially date) */
 .row{
@@ -1047,6 +1147,7 @@ input:focus, select:focus, textarea:focus{
         <div class="title">
           <b>Tracker</b>
           <span id="sub">Вход</span>
+          <span id="syncBadge" style="display:none;margin-left:8px;font-size:11px;color:rgba(255,255,255,.65)"></span>
         </div>
       </div>
 
@@ -1385,7 +1486,10 @@ input:focus, select:focus, textarea:focus{
     query,
     orderBy,
     deleteDoc,
-    writeBatch
+    writeBatch,
+    enableMultiTabIndexedDbPersistence,
+    enableIndexedDbPersistence,
+    onSnapshot
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
   // ---------------------------
@@ -1403,6 +1507,17 @@ input:focus, select:focus, textarea:focus{
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+  (async () => {
+    try {
+      await enableMultiTabIndexedDbPersistence(db);
+    } catch (e1) {
+      try {
+        await enableIndexedDbPersistence(db);
+      } catch (e2) {
+        console.warn("Firestore offline persistence unavailable:", e2?.code || e2, "(multi-tab error:", e1?.code || e1, ")");
+      }
+    }
+  })();
 
   // ---------------------------
   // Access
@@ -1462,6 +1577,8 @@ input:focus, select:focus, textarea:focus{
   let EX_NOTES = {}; // { [exerciseName]: string }
   let EX_NOTES_UPDATED_AT = null;
   let exNoteSaveTimer = null;
+  let syncDocUnsub = null;
+  let syncHasPendingWrites = false;
   let programIdSeq = 1;
   const PROGRAM_EDITORS = {
     self: {
@@ -1576,6 +1693,227 @@ function setSub(txt) {
   if (n) n.textContent = txt;
 }
 
+function setSyncBadge(text, tone = "muted") {
+  const n = el("syncBadge");
+  if (!n) return;
+
+  if (!text || !user) {
+    n.textContent = "";
+    n.style.display = "none";
+    return;
+  }
+
+  n.textContent = text;
+  n.style.display = "";
+  if (tone === "warn") n.style.color = "rgba(255,255,255,.78)";
+  else if (tone === "ok") n.style.color = "rgba(255,255,255,.72)";
+  else n.style.color = "rgba(255,255,255,.65)";
+}
+
+function refreshSyncBadge() {
+  if (!user) {
+    setSyncBadge("");
+    return;
+  }
+  if (!navigator.onLine) {
+    setSyncBadge("Offline · Saved locally", "warn");
+    return;
+  }
+  if (syncHasPendingWrites) {
+    setSyncBadge("Syncing…", "muted");
+    return;
+  }
+  setSyncBadge("");
+}
+
+function updateOnlineBadge() {
+  refreshSyncBadge();
+}
+
+function detachSyncDocWatcher() {
+  if (typeof syncDocUnsub === "function") {
+    try { syncDocUnsub(); } catch (e) { console.warn("sync watcher unsubscribe failed:", e); }
+  }
+  syncDocUnsub = null;
+  syncHasPendingWrites = false;
+  refreshSyncBadge();
+}
+
+function attachSyncDocWatcher(uid) {
+  if (!uid) return;
+  detachSyncDocWatcher();
+
+  syncDocUnsub = onSnapshot(
+    doc(db, "users", uid),
+    { includeMetadataChanges: true },
+    (snap) => {
+      syncHasPendingWrites = !!snap.metadata?.hasPendingWrites;
+      refreshSyncBadge();
+    },
+    (err) => {
+      console.warn("sync watcher error:", err);
+      syncHasPendingWrites = false;
+      refreshSyncBadge();
+    }
+  );
+}
+
+async function queueSyncTouch() {
+  if (!user) return;
+  try {
+    await setDoc(doc(db, "users", user.uid), { _wtSyncTouch: Date.now() }, { merge: true });
+  } catch (e) {
+    console.warn("sync touch failed:", e);
+  }
+}
+
+let successOverlayHideTimer = null;
+let successOverlayFadeTimer = null;
+let successOverlayRaf = null;
+let successOverlayConfettiTimer = null;
+let successOverlayClickBound = false;
+
+function hideSuccessOverlay() {
+  const overlay = el("successOverlay");
+  const canvas = el("successConfetti");
+  if (!overlay) return;
+
+  if (successOverlayHideTimer) clearTimeout(successOverlayHideTimer);
+  if (successOverlayFadeTimer) clearTimeout(successOverlayFadeTimer);
+  if (successOverlayConfettiTimer) clearTimeout(successOverlayConfettiTimer);
+  successOverlayHideTimer = null;
+  successOverlayFadeTimer = null;
+  successOverlayConfettiTimer = null;
+
+  if (successOverlayRaf) cancelAnimationFrame(successOverlayRaf);
+  successOverlayRaf = null;
+
+  overlay.classList.remove("show");
+  successOverlayFadeTimer = setTimeout(() => {
+    overlay.style.display = "none";
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }, 180);
+}
+
+function launchConfetti() {
+  const overlay = el("successOverlay");
+  const canvas = el("successConfetti");
+  if (!overlay || !canvas) return;
+
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  if (reduced) return;
+
+  if (successOverlayRaf) cancelAnimationFrame(successOverlayRaf);
+  if (successOverlayConfettiTimer) clearTimeout(successOverlayConfettiTimer);
+
+  const card = overlay.querySelector(".successOverlayCard");
+  const rect = card?.getBoundingClientRect?.();
+  const w = Math.max(1, Math.round(rect?.width || 320));
+  const h = Math.max(1, Math.round(rect?.height || 180));
+  const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  canvas.style.width = w + "px";
+  canvas.style.height = h + "px";
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const isPinkTheme = document.documentElement?.getAttribute("data-theme") === "pink";
+  const colors = isPinkTheme
+    ? ["#dd77af", "#FF5FBF", "#ffffff", "#f6b7da"]
+    : ["#32d583", "#ffffff", "#9fe8c4", "#7ad7a8"];
+  const pieces = Array.from({ length: 28 }, () => ({
+    x: w * (0.2 + Math.random() * 0.6),
+    y: 44 + Math.random() * 18,
+    vx: (Math.random() - 0.5) * 2.8,
+    vy: -(1.8 + Math.random() * 2.6),
+    g: 0.07 + Math.random() * 0.03,
+    s: 4 + Math.random() * 4,
+    r: Math.random() * Math.PI,
+    vr: (Math.random() - 0.5) * 0.25,
+    a: 1,
+    c: colors[(Math.random() * colors.length) | 0]
+  }));
+
+  const started = performance.now();
+  const tick = (now) => {
+    const t = now - started;
+    ctx.clearRect(0, 0, w, h);
+
+    for (const p of pieces) {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += p.g;
+      p.r += p.vr;
+      p.a = Math.max(0, 1 - t / 950);
+
+      if (p.a <= 0) continue;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.r);
+      ctx.globalAlpha = p.a * 0.85;
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s * 0.7);
+      ctx.restore();
+    }
+
+    if (t < 980 && overlay.classList.contains("show")) {
+      successOverlayRaf = requestAnimationFrame(tick);
+    } else {
+      successOverlayRaf = null;
+      ctx.clearRect(0, 0, w, h);
+    }
+  };
+
+  successOverlayRaf = requestAnimationFrame(tick);
+  successOverlayConfettiTimer = setTimeout(() => {
+    if (!successOverlayRaf) {
+      ctx.clearRect(0, 0, w, h);
+    }
+  }, 1050);
+}
+
+function showSuccessOverlay({ offline = false } = {}) {
+  const overlay = el("successOverlay");
+  const title = el("successTitle");
+  const sub = el("successSub");
+  if (!overlay || !title || !sub) return;
+
+  if (!successOverlayClickBound) {
+    overlay.addEventListener("click", hideSuccessOverlay);
+    successOverlayClickBound = true;
+  }
+
+  if (successOverlayHideTimer) clearTimeout(successOverlayHideTimer);
+  if (successOverlayFadeTimer) clearTimeout(successOverlayFadeTimer);
+  if (successOverlayConfettiTimer) clearTimeout(successOverlayConfettiTimer);
+  if (successOverlayRaf) cancelAnimationFrame(successOverlayRaf);
+  successOverlayHideTimer = null;
+  successOverlayFadeTimer = null;
+  successOverlayConfettiTimer = null;
+  successOverlayRaf = null;
+
+  title.textContent = "Workout saved";
+  sub.textContent = offline ? "Saved locally · will sync automatically" : "All set";
+
+  overlay.style.display = "flex";
+  requestAnimationFrame(() => overlay.classList.add("show"));
+
+  launchConfetti();
+
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const ttl = reduced ? 900 : 1050;
+  successOverlayHideTimer = setTimeout(hideSuccessOverlay, ttl);
+}
+
+window.addEventListener("online", updateOnlineBadge);
+window.addEventListener("offline", updateOnlineBadge);
+
 // LOADING helper
 function setLoading(on, text = "Загрузка") {
   const scr = el("screenBoot"); // ✅ было screenLoading
@@ -1661,11 +1999,16 @@ function deltaCell(curr, prev) {
 
 async function loadBodyWeekly() {
   if (!user) return;
-  bodyWeeklyMap = {};
-  const snap = await getDocs(collection(db, "users", user.uid, "bodyWeekly"));
-  snap.forEach(d => {
-    bodyWeeklyMap[d.id] = d.data() || {};
-  });
+  try {
+    const nextMap = {};
+    const snap = await getDocs(collection(db, "users", user.uid, "bodyWeekly"));
+    snap.forEach(d => {
+      nextMap[d.id] = d.data() || {};
+    });
+    bodyWeeklyMap = nextMap;
+  } catch (e) {
+    console.warn("loadBodyWeekly failed (offline/cache?):", e);
+  }
 }
 
 async function upsertBodyWeekly(dateISO, payload) {
@@ -2510,9 +2853,13 @@ async function deleteBodyWeeklyByMonday(dateISO) {
   // ---------------------------
   async function loadHistory() {
     if (!user) return;
-    const qy = query(collection(db, "users", user.uid, "sessions"), orderBy("date", "desc"));
-    const snap = await getDocs(qy);
-    history = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    try {
+      const qy = query(collection(db, "users", user.uid, "sessions"), orderBy("date", "desc"));
+      const snap = await getDocs(qy);
+      history = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+      console.warn("loadHistory failed (offline/cache?):", e);
+    }
   }
 
   async function deleteSessionById(sessionId) {
@@ -2999,6 +3346,8 @@ el("saveSet")?.addEventListener("click", () => {
 
     try {
       await addDoc(collection(db, "users", user.uid, "sessions"), payload);
+      await queueSyncTouch();
+      showSuccessOverlay({ offline: !navigator.onLine });
 
       clearDraft();
 
@@ -3708,6 +4057,7 @@ onAuthStateChanged(auth, async (u) => {
 
   try {
     if (!u) {
+      detachSyncDocWatcher();
       user = null;
       profile = null;
       history = [];
@@ -3722,10 +4072,13 @@ onAuthStateChanged(auth, async (u) => {
       setLoading(false);
       show("screenLogin", true);
       setSub("Вход");
+      updateOnlineBadge();
       return;
     }
 
     user = u;
+    syncHasPendingWrites = false;
+    updateOnlineBadge();
 
     // program
     let loaded = await loadProgramDoc(user.uid);
@@ -3754,6 +4107,14 @@ onAuthStateChanged(auth, async (u) => {
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
     profile = snap.exists() ? snap.data() : { nick: "—" };
+    if (!snap.exists()) {
+      try {
+        await setDoc(ref, { nick: "—" }, { merge: true });
+      } catch (e) {
+        console.warn("Failed to create profile doc for sync watcher:", e);
+      }
+    }
+    attachSyncDocWatcher(user.uid);
 
     // exercise notes
     await loadExerciseNotes();
@@ -3795,6 +4156,7 @@ onAuthStateChanged(auth, async (u) => {
     setSub("Вход");
     resetProgramEditorState("self");
     resetProgramEditorState("admin");
+    detachSyncDocWatcher();
   }
 });
 
@@ -4119,6 +4481,20 @@ service cloud.firestore {
   <div class="toastRow">
     <div class="toastMsg" id="toastMsg">Удалено</div>
     <button class="toastBtn" id="toastUndoBtn">UNDO (5s)</button>
+  </div>
+</div>
+
+<div class="successOverlay" id="successOverlay" aria-hidden="true">
+  <div class="successOverlayCard">
+    <canvas class="successOverlayCanvas" id="successConfetti" aria-hidden="true"></canvas>
+    <div class="successCheckWrap" aria-hidden="true">
+      <svg class="successCheck" viewBox="0 0 52 52">
+        <circle cx="26" cy="26" r="20"></circle>
+        <path d="M16 27.5l7 7 13-15"></path>
+      </svg>
+    </div>
+    <p class="successTitle" id="successTitle">Workout saved</p>
+    <div class="successSub" id="successSub">All set</div>
   </div>
 </div>
 
