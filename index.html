@@ -1123,6 +1123,27 @@ input:focus, select:focus, textarea:focus{
 .peGrid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .peHint{ font-size:12px; color:var(--muted); }
 .peHidden{ display:none !important; }
+.adminModeSwitch{
+  display:flex;
+  gap:8px;
+  margin-top:10px;
+  margin-bottom:10px;
+}
+.adminModeSwitch .btn{
+  width:auto;
+  padding:8px 12px;
+  border-radius:12px;
+}
+.adminJsonWrap{ display:grid; gap:10px; }
+.adminJsonArea{
+  width:100%;
+  min-height:240px;
+  border-radius:14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size:13px;
+  line-height:1.45;
+  resize:vertical;
+}
 
 </style>
 
@@ -1451,7 +1472,28 @@ input:focus, select:focus, textarea:focus{
               <button class="btn secondary" id="adminCopyDefaultBtn">Скопировать дефолт</button>
             </div>
           </div>
+          <div class="adminModeSwitch" id="adminModeSwitch">
+            <button type="button" class="btn primary" id="adminModeVisualBtn" data-admin-mode="visual">Визуально</button>
+            <button type="button" class="btn secondary" id="adminModeJsonBtn" data-admin-mode="json">JSON</button>
+          </div>
           <div id="programEditorAdmin"></div>
+          <div id="adminProgramJsonWrap" class="adminJsonWrap" style="display:none;">
+            <div class="peMeta">
+              <div class="peHint">Редактирование raw JSON (legacy формат).</div>
+              <div class="peDirty ok" id="adminJsonDirty">Сохранено</div>
+            </div>
+            <textarea id="adminProgramJson" class="adminJsonArea" spellcheck="false" placeholder='{
+  "Тренировка": [
+    { "name": "Упражнение", "scheme": "3×12", "video": "https://...", "machine": "" }
+  ]
+}'></textarea>
+            <div class="peActions">
+              <button type="button" class="btn secondary peTiny" id="adminJsonCopyBtn">Скопировать текущий JSON</button>
+              <button type="button" class="btn secondary peTiny" id="adminJsonValidateBtn">Проверить JSON</button>
+              <button type="button" class="btn primary peTiny" id="adminJsonSaveBtn">Сохранить JSON</button>
+              <button type="button" class="btn secondary peTiny" id="adminJsonCancelBtn">Отменить изменения</button>
+            </div>
+          </div>
           <div class="alert" id="adminStatus" style="display:none;"></div>
         </div>
       </div>
@@ -1597,6 +1639,11 @@ input:focus, select:focus, textarea:focus{
       ui: null,
       filter: "",
       dirty: false,
+      mode: "visual",
+      jsonText: "",
+      jsonDirty: false,
+      jsonLoadedSnapshot: "",
+      jsonLoadedByUid: {},
       loadedAt: 0,
       status: "",
       statusError: false
@@ -2530,6 +2577,15 @@ async function deleteBodyWeeklyByMonday(dateISO) {
     st.loadedAt = 0;
     st.status = "";
     st.statusError = false;
+    if (key === "admin") {
+      st.mode = "visual";
+      st.jsonText = "";
+      st.jsonDirty = false;
+      st.jsonLoadedSnapshot = "";
+      st.jsonLoadedByUid = {};
+      renderAdminEditorMode();
+      renderAdminJsonEditorUi();
+    }
   }
 
   function programEditorRootId(key) {
@@ -2714,6 +2770,206 @@ async function deleteBodyWeeklyByMonday(dateISO) {
     if (isAdminLocal()) renderProgramEditor("admin");
   }
 
+  function adminEditorMode() {
+    const st = PROGRAM_EDITORS.admin;
+    return (st?.mode === "json") ? "json" : "visual";
+  }
+
+  function getAdminTargetUid() {
+    return el("adminUserSelect")?.value || PROGRAM_EDITORS.admin?.targetUid || "";
+  }
+
+  function prettyProgramJson(legacyObj) {
+    return JSON.stringify(legacyObj, null, 2);
+  }
+
+  function setAdminJsonLoadedSnapshot(uid, prettyJson) {
+    const st = PROGRAM_EDITORS.admin;
+    if (!st) return;
+    st.jsonLoadedSnapshot = prettyJson || "";
+    if (uid) st.jsonLoadedByUid[uid] = st.jsonLoadedSnapshot;
+  }
+
+  function setAdminJsonText(prettyJson, { updateSnapshot = false, uid = "" } = {}) {
+    const st = PROGRAM_EDITORS.admin;
+    if (!st) return;
+    st.jsonText = prettyJson || "";
+    if (updateSnapshot) setAdminJsonLoadedSnapshot(uid || st.targetUid || getAdminTargetUid(), st.jsonText);
+    st.jsonDirty = st.jsonText !== (st.jsonLoadedSnapshot || "");
+    renderAdminJsonEditorUi();
+  }
+
+  function setAdminJsonFromLegacy(legacyObj, { updateSnapshot = false, uid = "" } = {}) {
+    const pretty = prettyProgramJson(legacyObj || {});
+    setAdminJsonText(pretty, { updateSnapshot, uid });
+  }
+
+  function refreshAdminJsonDirtyUi() {
+    const st = PROGRAM_EDITORS.admin;
+    const badge = el("adminJsonDirty");
+    if (!badge || !st) return;
+    badge.textContent = st.jsonDirty ? "Несохранённые изменения" : "Сохранено";
+    badge.classList.toggle("ok", !st.jsonDirty);
+  }
+
+  function renderAdminJsonEditorUi() {
+    const st = PROGRAM_EDITORS.admin;
+    const area = el("adminProgramJson");
+    if (!st || !area) return;
+    if (area.value !== (st.jsonText || "")) area.value = st.jsonText || "";
+    refreshAdminJsonDirtyUi();
+  }
+
+  function renderAdminEditorMode() {
+    const st = PROGRAM_EDITORS.admin;
+    const visualBtn = el("adminModeVisualBtn");
+    const jsonBtn = el("adminModeJsonBtn");
+    const visualRoot = el("programEditorAdmin");
+    const jsonWrap = el("adminProgramJsonWrap");
+    const isJson = adminEditorMode() === "json";
+    if (visualBtn) visualBtn.className = `btn ${isJson ? "secondary" : "primary"}`;
+    if (jsonBtn) jsonBtn.className = `btn ${isJson ? "primary" : "secondary"}`;
+    if (visualRoot) visualRoot.style.display = isJson ? "none" : "";
+    if (jsonWrap) jsonWrap.style.display = isJson ? "" : "none";
+    if (st) refreshAdminJsonDirtyUi();
+  }
+
+  function setAdminEditorMode(mode) {
+    const st = PROGRAM_EDITORS.admin;
+    if (!st) return;
+    st.mode = mode === "json" ? "json" : "visual";
+    renderAdminEditorMode();
+    if (st.mode === "json") renderAdminJsonEditorUi();
+  }
+
+  function parseAdminProgramJson() {
+    const raw = String(el("adminProgramJson")?.value || "");
+    if (!raw.trim()) return { err: "JSON пустой." };
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      return { err: `Ошибка JSON: ${e?.message || "не удалось разобрать"}` };
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { err: "JSON верхнего уровня должен быть объектом." };
+    }
+    const legacy = cloneJson(parsed);
+    const shapeErr = validateProgramShape(legacy);
+    if (shapeErr) return { err: shapeErr };
+    return { legacy };
+  }
+
+  async function copyAdminJsonToClipboard(text) {
+    const value = String(text || "");
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch (_) {
+      const area = el("adminProgramJson");
+      if (!area) return false;
+      const prevStart = area.selectionStart;
+      const prevEnd = area.selectionEnd;
+      area.focus();
+      area.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (_) { ok = false; }
+      if (Number.isFinite(prevStart) && Number.isFinite(prevEnd)) area.setSelectionRange(prevStart, prevEnd);
+      return ok;
+    }
+  }
+
+  function syncSelfStateFromSavedProgram(targetUid, legacy) {
+    if (!user || targetUid !== user.uid) return;
+    PROGRAM = legacy;
+    PROGRAM_EDITORS.self.targetUid = user.uid;
+    PROGRAM_EDITORS.self.ui = legacyProgramToUI(PROGRAM);
+    PROGRAM_EDITORS.self.filter = PROGRAM_EDITORS.self.filter || "";
+    PROGRAM_EDITORS.self.dirty = false;
+    PROGRAM_EDITORS.self.loadedAt = Date.now();
+    renderProgramEditor("self");
+    renderWorkoutSelect();
+    if (activeTab === "workout") renderExercise();
+    renderDashboard();
+  }
+
+  async function saveAdminProgramFromJson() {
+    if (!isAdminLocal()) return adminMsg("Нет доступа", true);
+    const st = PROGRAM_EDITORS.admin;
+    if (!st) return;
+    const targetUid = getAdminTargetUid();
+    if (!targetUid) return adminMsg("Выбери пользователя", true);
+
+    const parsed = parseAdminProgramJson();
+    if (parsed.err) return adminMsg(parsed.err, true);
+    const legacy = parsed.legacy;
+
+    try {
+      await saveProgramDoc(targetUid, legacy);
+      st.targetUid = targetUid;
+      st.ui = legacyProgramToUI(legacy);
+      st.dirty = false;
+      st.loadedAt = Date.now();
+      setAdminJsonFromLegacy(legacy, { updateSnapshot: true, uid: targetUid });
+      setProgramEditorStatus("admin", "Сохранено в Firestore.");
+      syncSelfStateFromSavedProgram(targetUid, legacy);
+      renderProgramEditor("admin");
+      renderAdminEditorMode();
+    } catch (e) {
+      console.error(e);
+      adminMsg("Не удалось сохранить (проверь Rules).", true);
+    }
+  }
+
+  function bindAdminJsonEditor() {
+    el("adminModeSwitch")?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-admin-mode]");
+      if (!btn) return;
+      haptic();
+      setAdminEditorMode(btn.dataset.adminMode);
+    });
+
+    el("adminProgramJson")?.addEventListener("input", (e) => {
+      const st = PROGRAM_EDITORS.admin;
+      if (!st) return;
+      st.jsonText = String(e.target.value || "");
+      st.jsonDirty = st.jsonText !== (st.jsonLoadedSnapshot || "");
+      refreshAdminJsonDirtyUi();
+    });
+
+    el("adminJsonCopyBtn")?.addEventListener("click", async () => {
+      haptic();
+      const ok = await copyAdminJsonToClipboard(el("adminProgramJson")?.value || "");
+      adminMsg(ok ? "JSON скопирован." : "Не удалось скопировать JSON.", !ok);
+    });
+
+    el("adminJsonValidateBtn")?.addEventListener("click", () => {
+      haptic();
+      const parsed = parseAdminProgramJson();
+      if (parsed.err) return adminMsg(parsed.err, true);
+      setAdminJsonFromLegacy(parsed.legacy);
+      adminMsg("JSON корректен.");
+    });
+
+    el("adminJsonSaveBtn")?.addEventListener("click", () => {
+      haptic();
+      saveAdminProgramFromJson();
+    });
+
+    el("adminJsonCancelBtn")?.addEventListener("click", () => {
+      haptic();
+      const st = PROGRAM_EDITORS.admin;
+      if (!st) return;
+      const uid = getAdminTargetUid();
+      const snap = st.jsonLoadedByUid[uid] ?? st.jsonLoadedSnapshot ?? "";
+      st.jsonLoadedSnapshot = snap;
+      st.jsonText = snap;
+      st.jsonDirty = false;
+      renderAdminJsonEditorUi();
+      adminMsg("Изменения отменены.");
+    });
+  }
+
   function withProgramEditorMutation(key, mutator, undoMessage = "") {
     const st = PROGRAM_EDITORS[key];
     if (!st?.ui) return;
@@ -2818,6 +3074,8 @@ async function deleteBodyWeeklyByMonday(dateISO) {
         if (!isAdminLocal()) return;
         setActiveTabUI("admin");
         renderProgramEditor("admin");
+        renderAdminEditorMode();
+        renderAdminJsonEditorUi();
         return;
       }
 
@@ -3741,6 +3999,7 @@ function renderProgress() {
           st.ui = legacyProgramToUI(DEFAULT_PROGRAM);
           st.dirty = true;
           st.loadedAt = Date.now();
+          if (key === "admin") setAdminJsonFromLegacy(DEFAULT_PROGRAM, { updateSnapshot: true, uid });
           setProgramEditorStatus(key, "Программа не найдена. Подставлен дефолт (ещё не сохранено).");
           return;
         }
@@ -3748,6 +4007,7 @@ function renderProgress() {
         st.ui = legacyProgramToUI({ "Новая тренировка": [] });
         st.dirty = false;
         st.loadedAt = Date.now();
+        if (key === "admin") setAdminJsonFromLegacy({ "Новая тренировка": [] }, { updateSnapshot: true, uid });
         setProgramEditorStatus(key, "У пользователя нет программы. Можно заполнить и сохранить.");
         return;
       }
@@ -3757,6 +4017,7 @@ function renderProgress() {
         st.ui = legacyProgramToUI(DEFAULT_PROGRAM);
         st.dirty = true;
         st.loadedAt = Date.now();
+        if (key === "admin") setAdminJsonFromLegacy(DEFAULT_PROGRAM, { updateSnapshot: true, uid });
         setProgramEditorStatus(key, `Получена некорректная программа: ${err}. Загружен дефолт для исправления.`, true);
         return;
       }
@@ -3764,6 +4025,7 @@ function renderProgress() {
       st.ui = legacyProgramToUI(program);
       st.dirty = false;
       st.loadedAt = Date.now();
+      if (key === "admin") setAdminJsonFromLegacy(program, { updateSnapshot: true, uid });
       setProgramEditorStatus(key, "Загружено.");
     } catch (e) {
       console.error(e);
@@ -3789,20 +4051,10 @@ function renderProgress() {
       await saveProgramDoc(targetUid, legacy);
       st.dirty = false;
       st.loadedAt = Date.now();
+      if (key === "admin") setAdminJsonFromLegacy(legacy, { updateSnapshot: true, uid: targetUid });
       setProgramEditorStatus(key, "Сохранено в Firestore.");
 
-      if (user && targetUid === user.uid) {
-        PROGRAM = legacy;
-        PROGRAM_EDITORS.self.targetUid = user.uid;
-        PROGRAM_EDITORS.self.ui = legacyProgramToUI(PROGRAM);
-        PROGRAM_EDITORS.self.filter = PROGRAM_EDITORS.self.filter || "";
-        PROGRAM_EDITORS.self.dirty = false;
-        PROGRAM_EDITORS.self.loadedAt = Date.now();
-        renderProgramEditor("self");
-        renderWorkoutSelect();
-        if (activeTab === "workout") renderExercise();
-        renderDashboard();
-      }
+      syncSelfStateFromSavedProgram(targetUid, legacy);
     } catch (e) {
       console.error(e);
       setProgramEditorStatus(key, "Не удалось сохранить (проверь Rules).", true);
@@ -4020,27 +4272,34 @@ function renderProgress() {
 
   bindProgramEditorRoot("self");
   bindProgramEditorRoot("admin");
+  bindAdminJsonEditor();
+  renderAdminEditorMode();
+  renderAdminJsonEditorUi();
 
   el("adminLoadBtn")?.addEventListener("click", async () => {
     if (!isAdminLocal()) return adminMsg("Нет доступа", true);
     const targetUid = el("adminUserSelect")?.value || "";
     if (!targetUid) return adminMsg("Выбери пользователя", true);
-    await loadProgramIntoEditor("admin", targetUid);
+    await loadProgramIntoEditor("admin", targetUid, { fallbackDefault: true });
   });
 
   el("adminCopyDefaultBtn")?.addEventListener("click", () => {
     if (!isAdminLocal()) return adminMsg("Нет доступа", true);
     handleProgramEditorGlobalAction("admin", "copy-default");
-    adminMsg("Дефолт вставлен в визуальный редактор. Нажми «Сохранить» в редакторе.");
+    setAdminJsonFromLegacy(DEFAULT_PROGRAM);
+    adminMsg("Дефолт вставлен. Нажми «Сохранить» (визуально или JSON).");
   });
 
-  el("adminUserSelect")?.addEventListener("change", () => {
+  el("adminUserSelect")?.addEventListener("change", async () => {
     if (!isAdminLocal()) return;
     const st = PROGRAM_EDITORS.admin;
     st.targetUid = el("adminUserSelect")?.value || "";
     st.status = "";
     st.statusError = false;
     renderProgramEditor("admin");
+    renderAdminEditorMode();
+    if (!st.targetUid) return;
+    await loadProgramIntoEditor("admin", st.targetUid, { fallbackDefault: true });
   });
 
  await setPersistence(auth, browserLocalPersistence);
@@ -4099,6 +4358,8 @@ onAuthStateChanged(auth, async (u) => {
     PROGRAM_EDITORS.admin.ui = isAdminLocal() ? legacyProgramToUI(PROGRAM) : null;
     PROGRAM_EDITORS.admin.filter = PROGRAM_EDITORS.admin.filter || "";
     PROGRAM_EDITORS.admin.dirty = false;
+    PROGRAM_EDITORS.admin.mode = PROGRAM_EDITORS.admin.mode || "visual";
+    setAdminJsonFromLegacy(PROGRAM, { updateSnapshot: true, uid: PROGRAM_EDITORS.admin.targetUid });
     PROGRAM_EDITORS.admin.status = "";
     PROGRAM_EDITORS.admin.statusError = false;
     PROGRAM_EDITORS.admin.loadedAt = Date.now();
@@ -4141,7 +4402,11 @@ onAuthStateChanged(auth, async (u) => {
     setActiveTabUI("dashboard");
     renderWorkoutSelect();
     renderProgramEditor("self");
-    if (isAdminLocal()) renderProgramEditor("admin");
+    if (isAdminLocal()) {
+      renderProgramEditor("admin");
+      renderAdminEditorMode();
+      renderAdminJsonEditorUi();
+    }
     renderDashboard();
     renderHistory();
     renderProgress();
