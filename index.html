@@ -1111,6 +1111,10 @@ input:focus, select:focus, textarea:focus{
   padding:12px;
   background:rgba(255,255,255,.03);
 }
+.peWorkout.peFocus{
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255,107,107,.22);
+}
 .peExList{ display:grid; gap:8px; margin-top:10px; }
 .peEx{
   border:1px solid rgba(255,255,255,.10);
@@ -1121,6 +1125,34 @@ input:focus, select:focus, textarea:focus{
 .peActions{ display:flex; flex-wrap:wrap; gap:6px; }
 .peTiny{ width:auto; padding:8px 10px; border-radius:12px; font-size:12px; }
 .peGrid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.peMedia{
+  margin-top:8px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:12px;
+  background:rgba(255,255,255,.02);
+}
+.peMedia > summary{
+  cursor:pointer;
+  list-style:none;
+  padding:8px 10px;
+  font-size:12px;
+  font-weight:800;
+  color:var(--muted);
+}
+.peMedia > summary::-webkit-details-marker{ display:none; }
+.peMedia > summary::before{
+  content:"▸";
+  margin-right:6px;
+  display:inline-block;
+  transition:transform .15s ease;
+}
+.peMedia[open] > summary::before{ transform:rotate(90deg); }
+.peMediaBody{
+  border-top:1px solid rgba(255,255,255,.08);
+  padding:8px 10px 10px;
+  display:grid;
+  gap:8px;
+}
 .peHint{ font-size:12px; color:var(--muted); }
 .peHidden{ display:none !important; }
 .adminModeSwitch{
@@ -1144,6 +1176,24 @@ input:focus, select:focus, textarea:focus{
   line-height:1.45;
   resize:vertical;
 }
+.peModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:10001;
+}
+.peModalBg{
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.62);
+}
+.peModalCard{
+  position:relative;
+  margin:8vh auto 0;
+  width:min(92vw, 520px);
+}
+.peModalTitle{ font-weight:900; font-size:17px; margin:0; }
+.peModalBody{ display:grid; gap:8px; margin-top:8px; }
 
 </style>
 
@@ -1368,6 +1418,7 @@ input:focus, select:focus, textarea:focus{
   <div style="display:flex; gap:8px; align-items:center;">
     <button class="btn secondary" id="videoBtn" style="width:auto;padding:10px 12px">Видео</button>
     <button class="btn secondary" id="machineBtn" style="width:auto;padding:10px 12px; display:none;">Тренажёр</button>
+    <button class="btn secondary" id="photoBtn" style="width:auto;padding:10px 12px; display:none;">Фото</button>
   </div>
 </div>
 
@@ -1484,7 +1535,7 @@ input:focus, select:focus, textarea:focus{
             </div>
             <textarea id="adminProgramJson" class="adminJsonArea" spellcheck="false" placeholder='{
   "Тренировка": [
-    { "name": "Упражнение", "scheme": "3×12", "video": "https://...", "machine": "" }
+    { "name": "Упражнение", "scheme": "3×12", "video": "https://...", "machine": "", "photo": "" }
   ]
 }'></textarea>
             <div class="peActions">
@@ -1579,24 +1630,24 @@ input:focus, select:focus, textarea:focus{
   // ---------------------------
   const DEFAULT_PROGRAM = {
     "Вверх": [
-      { name: "Тяга верхнего блока / гравитрон", scheme: "4×15 | 12", video: "https://drive.google.com/" },
-      { name: "Бабочка", scheme: "4×12 | 10", video: "https://drive.google.com/" },
-      { name: "Жим гантелей сидя / стоя", scheme: "4×12", video: "https://drive.google.com/" },
-      { name: "Отжимания обратным хватом", scheme: "3×max", video: "https://drive.google.com/" },
-      { name: "Сгибание гантелей стоя", scheme: "3×12", video: "https://drive.google.com/" }
+      { name: "Тяга верхнего блока / гравитрон", scheme: "4×15 | 12", video: "https://drive.google.com/", machine: "", photo: "" },
+      { name: "Бабочка", scheme: "4×12 | 10", video: "https://drive.google.com/", machine: "", photo: "" },
+      { name: "Жим гантелей сидя / стоя", scheme: "4×12", video: "https://drive.google.com/", machine: "", photo: "" },
+      { name: "Отжимания обратным хватом", scheme: "3×max", video: "https://drive.google.com/", machine: "", photo: "" },
+      { name: "Сгибание гантелей стоя", scheme: "3×12", video: "https://drive.google.com/", machine: "", photo: "" }
     ],
     "Ягодицы": [
-      { name: "Разгиб сидя в тренажёре", scheme: "3×15", video: "https://drive.google.com/" },
-      { name: "Присед в Смите", scheme: "5×12 | 10", video: "https://drive.google.com/" },
-      { name: "Ягодичный мостик (штанга)", scheme: "4×12 | 10", video: "https://drive.google.com/" },
-      { name: "Румынская тяга", scheme: "4×12 | 10", video: "https://drive.google.com/" },
-      { name: "Выпады в Смите (обычные)", scheme: "3×10 на ногу", video: "https://drive.google.com/" }
+      { name: "Разгиб сидя в тренажёре", scheme: "3×15", video: "https://drive.google.com/", machine: "", photo: "" },
+      { name: "Присед в Смите", scheme: "5×12 | 10", video: "https://drive.google.com/", machine: "", photo: "" },
+      { name: "Ягодичный мостик (штанга)", scheme: "4×12 | 10", video: "https://drive.google.com/", machine: "", photo: "" },
+      { name: "Румынская тяга", scheme: "4×12 | 10", video: "https://drive.google.com/", machine: "", photo: "" },
+      { name: "Выпады в Смите (обычные)", scheme: "3×10 на ногу", video: "https://drive.google.com/", machine: "", photo: "" }
     ],
     "Ноги": [
-      { name: "Разгиб сидя в тренажёре", scheme: "3×15", video: "https://drive.google.com/" },
-      { name: "Присед в Смите (средняя / узкая стойка)", scheme: "5×12 | 10", video: "https://drive.google.com/" },
-      { name: "Жим ногами в платформе", scheme: "4×10", video: "https://drive.google.com/" },
-      { name: "Сгибание ног сидя", scheme: "4×12 | 10", video: "https://drive.google.com/" }
+      { name: "Разгиб сидя в тренажёре", scheme: "3×15", video: "https://drive.google.com/", machine: "", photo: "" },
+      { name: "Присед в Смите (средняя / узкая стойка)", scheme: "5×12 | 10", video: "https://drive.google.com/", machine: "", photo: "" },
+      { name: "Жим ногами в платформе", scheme: "4×10", video: "https://drive.google.com/", machine: "", photo: "" },
+      { name: "Сгибание ног сидя", scheme: "4×12 | 10", video: "https://drive.google.com/", machine: "", photo: "" }
     ]
   };
 
@@ -1649,6 +1700,8 @@ input:focus, select:focus, textarea:focus{
       statusError: false
     }
   };
+  const PROGRAM_EDITOR_FOCUS = { self: "", admin: "" };
+  const ADD_WORKOUT_MODAL = { key: null };
 
   // ---------------------------
 // Helpers
@@ -2488,7 +2541,8 @@ async function deleteBodyWeeklyByMonday(dateISO) {
         if (!ex || typeof ex !== "object") return `В "${wName}" есть не-объект`;
         if (!ex.name || !ex.scheme) return `В "${wName}" у упражнения нет name/scheme`;
         if (!ex.video) ex.video = "https://drive.google.com/";
-        if (!ex.machine) ex.machine = "";
+        if (!("machine" in ex) || ex.machine == null) ex.machine = "";
+        if (!("photo" in ex) || ex.photo == null) ex.photo = "";
       }
     }
     return null;
@@ -2514,7 +2568,8 @@ async function deleteBodyWeeklyByMonday(dateISO) {
         name: String(ex?.name || "").trim(),
         scheme: String(ex?.scheme || "").trim(),
         video: String(ex?.video || "").trim(),
-        machine: String(ex?.machine || "").trim()
+        machine: String(ex?.machine || "").trim(),
+        photo: String(ex?.photo || "").trim()
       }))
     }));
     return { workouts };
@@ -2529,7 +2584,8 @@ async function deleteBodyWeeklyByMonday(dateISO) {
         name: String(ex?.name || "").trim(),
         scheme: String(ex?.scheme || "").trim(),
         video: String(ex?.video || "").trim() || "https://drive.google.com/",
-        machine: String(ex?.machine || "").trim()
+        machine: String(ex?.machine || "").trim(),
+        photo: String(ex?.photo || "").trim()
       }));
     }
     return out;
@@ -2556,7 +2612,7 @@ async function deleteBodyWeeklyByMonday(dateISO) {
         if (!ex || typeof ex !== "object") return `Тренировка "${title}": упражнение #${ei + 1} повреждено`;
         if (!String(ex.name || "").trim()) return `Тренировка "${title}": заполни name у упражнения #${ei + 1}`;
         if (!String(ex.scheme || "").trim()) return `Тренировка "${title}": заполни scheme у упражнения #${ei + 1}`;
-        for (const field of ["video", "machine"]) {
+        for (const field of ["video", "machine", "photo"]) {
           const url = String(ex[field] || "").trim();
           if (url && !/^https?:\/\//i.test(url)) {
             return `Тренировка "${title}": поле ${field} у "${ex.name || ("#" + (ei + 1))}" должно начинаться с http/https`;
@@ -2655,7 +2711,7 @@ async function deleteBodyWeeklyByMonday(dateISO) {
       const wMatch = !q || String(w.title || "").toLowerCase().includes(q);
       let anyEx = false;
       for (const ex of (w.exercises || [])) {
-        const exMatch = !q || [ex.name, ex.scheme, ex.video, ex.machine].some(v => String(v || "").toLowerCase().includes(q));
+        const exMatch = !q || [ex.name, ex.scheme, ex.video, ex.machine, ex.photo].some(v => String(v || "").toLowerCase().includes(q));
         if (exMatch) {
           visibleExercises += 1;
           anyEx = true;
@@ -2683,14 +2739,28 @@ async function deleteBodyWeeklyByMonday(dateISO) {
       return;
     }
 
-    const q = String(st.filter || "").trim().toLowerCase();
-    const stat = getProgramEditorFilteredStats(st);
+    const q = isAdminEditor ? String(st.filter || "").trim().toLowerCase() : "";
+    const stat = isAdminEditor
+      ? getProgramEditorFilteredStats(st)
+      : {
+          visibleWorkouts: (st.ui.workouts || []).length,
+          visibleExercises: (st.ui.workouts || []).reduce((sum, w) => sum + (w.exercises || []).length, 0)
+        };
     const targetLabel = isAdminEditor ? (st.targetUid || "—") : (user?.uid || "—");
+    const filterRowHtml = isAdminEditor ? `
+        <div class="peRow">
+          <input class="peGrow" id="peFilter-${key}" value="${escapeHtml(st.filter)}" placeholder="Поиск по тренировкам и упражнениям" />
+          <button type="button" class="btn secondary peTiny" data-pe-global="clear-filter">Сброс</button>
+        </div>
+    ` : "";
+    const copyDefaultBtnHtml = isAdminEditor
+      ? `<button type="button" class="btn secondary peTiny" data-pe-global="copy-default">Скопировать дефолт</button>`
+      : "";
 
     const workoutsHtml = (st.ui.workouts || []).map((w, wi) => {
       const workoutMatch = !q || String(w.title || "").toLowerCase().includes(q);
       const exHtml = (w.exercises || []).map((ex, ei) => {
-        const exMatch = !q || [ex.name, ex.scheme, ex.video, ex.machine].some(v => String(v || "").toLowerCase().includes(q));
+        const exMatch = !q || [ex.name, ex.scheme, ex.video, ex.machine, ex.photo].some(v => String(v || "").toLowerCase().includes(q));
         const hidden = (!workoutMatch && !exMatch) ? " peHidden" : "";
         return `
           <div class="peEx${hidden}" data-ex-id="${escapeHtml(ex.id)}">
@@ -2704,21 +2774,22 @@ async function deleteBodyWeeklyByMonday(dateISO) {
             <input data-pe-field="name" value="${escapeHtml(ex.name)}" placeholder="Например: Жим ногами" />
             <label>Схема</label>
             <input data-pe-field="scheme" value="${escapeHtml(ex.scheme)}" placeholder="4×12" />
-            <div class="peGrid2">
-              <div>
+            <details class="peMedia">
+              <summary>Media</summary>
+              <div class="peMediaBody">
                 <label>Видео (URL)</label>
                 <input data-pe-field="video" value="${escapeHtml(ex.video)}" placeholder="https://..." />
-              </div>
-              <div>
+                <label>Фото (URL)</label>
+                <input data-pe-field="photo" value="${escapeHtml(ex.photo)}" placeholder="https://..." />
                 <label>Тренажёр (URL)</label>
                 <input data-pe-field="machine" value="${escapeHtml(ex.machine)}" placeholder="https://..." />
               </div>
-            </div>
+            </details>
           </div>
         `;
       }).join("");
 
-      const anyVisibleEx = (w.exercises || []).some(ex => !q || [ex.name, ex.scheme, ex.video, ex.machine].some(v => String(v || "").toLowerCase().includes(q)));
+      const anyVisibleEx = (w.exercises || []).some(ex => !q || [ex.name, ex.scheme, ex.video, ex.machine, ex.photo].some(v => String(v || "").toLowerCase().includes(q)));
       const hideWorkout = (!workoutMatch && !anyVisibleEx) ? " peHidden" : "";
 
       return `
@@ -2746,23 +2817,31 @@ async function deleteBodyWeeklyByMonday(dateISO) {
 
     root.innerHTML = `
       <div class="peToolbar" data-program-editor="${key}">
-        <div class="peRow">
-          <input class="peGrow" id="peFilter-${key}" value="${escapeHtml(st.filter)}" placeholder="Поиск по тренировкам и упражнениям" />
-          <button type="button" class="btn secondary peTiny" data-pe-global="clear-filter">Сброс</button>
-        </div>
+        ${filterRowHtml}
         <div class="peMeta">
           <div class="peHint">${isAdminEditor ? `UID: ${escapeHtml(targetLabel)}` : "Редактируется только твоя программа"} · ${stat.visibleWorkouts}/${st.ui.workouts.length} тренировок · ${stat.visibleExercises} упражнений</div>
           <div class="peDirty ${st.dirty ? "" : "ok"}">${st.dirty ? "Несохранённые изменения" : "Сохранено"}</div>
         </div>
         <div class="peActions">
           <button type="button" class="btn secondary peTiny" data-pe-global="add-workout">+ Тренировка</button>
-          <button type="button" class="btn secondary peTiny" data-pe-global="copy-default">Скопировать дефолт</button>
+          ${copyDefaultBtnHtml}
           <button type="button" class="btn primary peTiny" data-pe-global="save">Сохранить</button>
         </div>
         ${st.status ? `<div class="alert" style="display:block;">${st.statusError ? `<b>Ошибка:</b> ` : ""}${escapeHtml(st.status)}</div>` : ``}
         <div class="peList">${workoutsHtml || `<div class="muted">Пока нет тренировок. Нажми «+ Тренировка».</div>`}</div>
       </div>
     `;
+
+    const focusWorkoutId = PROGRAM_EDITOR_FOCUS[key];
+    if (focusWorkoutId) {
+      const node = root.querySelector(`[data-workout-id="${focusWorkoutId}"]`);
+      if (node) {
+        node.classList.add("peFocus");
+        node.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => node.classList.remove("peFocus"), 1400);
+      }
+      PROGRAM_EDITOR_FOCUS[key] = "";
+    }
   }
 
   function renderProgramEditors() {
@@ -2777,6 +2856,10 @@ async function deleteBodyWeeklyByMonday(dateISO) {
 
   function getAdminTargetUid() {
     return el("adminUserSelect")?.value || PROGRAM_EDITORS.admin?.targetUid || "";
+  }
+
+  function isAdminOwnProfileJsonOnly() {
+    return isAdminLocal() && getAdminTargetUid() === ADMIN_UID;
   }
 
   function prettyProgramJson(legacyObj) {
@@ -2822,24 +2905,109 @@ async function deleteBodyWeeklyByMonday(dateISO) {
 
   function renderAdminEditorMode() {
     const st = PROGRAM_EDITORS.admin;
+    if (!st) return;
     const visualBtn = el("adminModeVisualBtn");
     const jsonBtn = el("adminModeJsonBtn");
+    const switchNode = el("adminModeSwitch");
     const visualRoot = el("programEditorAdmin");
     const jsonWrap = el("adminProgramJsonWrap");
-    const isJson = adminEditorMode() === "json";
+    const forceJson = isAdminOwnProfileJsonOnly();
+    if (forceJson) st.mode = "json";
+    const isJson = forceJson || adminEditorMode() === "json";
+    if (switchNode) switchNode.style.display = forceJson ? "none" : "flex";
     if (visualBtn) visualBtn.className = `btn ${isJson ? "secondary" : "primary"}`;
     if (jsonBtn) jsonBtn.className = `btn ${isJson ? "primary" : "secondary"}`;
     if (visualRoot) visualRoot.style.display = isJson ? "none" : "";
     if (jsonWrap) jsonWrap.style.display = isJson ? "" : "none";
-    if (st) refreshAdminJsonDirtyUi();
+    refreshAdminJsonDirtyUi();
   }
 
   function setAdminEditorMode(mode) {
     const st = PROGRAM_EDITORS.admin;
     if (!st) return;
-    st.mode = mode === "json" ? "json" : "visual";
+    if (isAdminOwnProfileJsonOnly()) st.mode = "json";
+    else st.mode = mode === "json" ? "json" : "visual";
     renderAdminEditorMode();
     if (st.mode === "json") renderAdminJsonEditorUi();
+  }
+
+  function closeAddWorkoutModal() {
+    const modal = el("addWorkoutModal");
+    if (modal) modal.style.display = "none";
+    const err = el("addWorkoutModalErr");
+    if (err) {
+      err.textContent = "";
+      err.style.display = "none";
+    }
+    ADD_WORKOUT_MODAL.key = null;
+  }
+
+  function openAddWorkoutModal(key) {
+    const st = PROGRAM_EDITORS[key];
+    if (!st?.ui) return;
+    const modal = el("addWorkoutModal");
+    const title = el("addWorkoutTitle");
+    const exName = el("addWorkoutExercise");
+    const scheme = el("addWorkoutScheme");
+    const err = el("addWorkoutModalErr");
+    if (!modal || !title || !exName || !scheme || !err) return;
+    ADD_WORKOUT_MODAL.key = key;
+    title.value = "Новая тренировка";
+    exName.value = "Новое упражнение";
+    scheme.value = "3×12";
+    err.textContent = "";
+    err.style.display = "none";
+    modal.style.display = "block";
+    title.focus();
+    title.select();
+  }
+
+  function saveAddWorkoutModal() {
+    const key = ADD_WORKOUT_MODAL.key;
+    const st = key ? PROGRAM_EDITORS[key] : null;
+    const err = el("addWorkoutModalErr");
+    const titleInput = el("addWorkoutTitle");
+    const exNameInput = el("addWorkoutExercise");
+    const schemeInput = el("addWorkoutScheme");
+    if (!st?.ui || !titleInput || !exNameInput || !schemeInput || !err) return;
+
+    const title = String(titleInput.value || "").trim();
+    const exName = String(exNameInput.value || "").trim() || "Новое упражнение";
+    const scheme = String(schemeInput.value || "").trim() || "3×12";
+    if (!title) {
+      err.textContent = "Введите название тренировки.";
+      err.style.display = "";
+      titleInput.focus();
+      return;
+    }
+
+    const lower = title.toLowerCase();
+    const dup = (st.ui.workouts || []).some(w => String(w.title || "").trim().toLowerCase() === lower);
+    if (dup) {
+      err.textContent = "Тренировка с таким названием уже есть.";
+      err.style.display = "";
+      titleInput.focus();
+      return;
+    }
+
+    const workoutId = nextProgramId("w");
+    PROGRAM_EDITOR_FOCUS[key] = workoutId;
+    withProgramEditorMutation(key, (ui) => {
+      ui.workouts.push({
+        id: workoutId,
+        title,
+        subtitle: "",
+        exercises: [{
+          id: nextProgramId("e"),
+          name: exName,
+          scheme,
+          video: "",
+          machine: "",
+          photo: ""
+        }]
+      });
+    });
+    closeAddWorkoutModal();
   }
 
   function parseAdminProgramJson() {
@@ -3267,12 +3435,23 @@ wrap.querySelectorAll(".workoutCard").forEach(card => {
     return /^https?:\/\//i.test(u);
   }
 
+  function isValidHttpUrl(url) {
+    if (!url) return false;
+    return /^https?:\/\//i.test(String(url).trim());
+  }
+
 function renderExercise(resetSetNo = false) {
   const ex = getExObj();
   if (!ex) {
     el("exTitle").textContent = "Нет упражнений";
     el("exScheme").textContent = "—";
     el("setsTableWrap").innerHTML = "—";
+    const vBtn = el("videoBtn");
+    if (vBtn) vBtn.style.display = "none";
+    const mBtn = el("machineBtn");
+    if (mBtn) mBtn.style.display = "none";
+    const pBtn = el("photoBtn");
+    if (pBtn) pBtn.style.display = "none";
     const noteEl = el("exNote");
     if (noteEl) {
       noteEl.value = "";
@@ -3297,6 +3476,11 @@ function renderExercise(resetSetNo = false) {
   if (mBtn) {
     const has = !!(ex.machine && String(ex.machine).trim());
     mBtn.style.display = has ? "" : "none";
+  }
+  const pBtn = el("photoBtn");
+  if (pBtn) {
+    const has = isValidHttpUrl(ex.photo);
+    pBtn.style.display = has ? "" : "none";
   }
 
   if (resetSetNo) {
@@ -3435,6 +3619,7 @@ el("exNote")?.addEventListener("input", (e) => {
     const modal = el("machineModal");
     const img = el("machineImg");
     const err = el("machineErr");
+    const title = el("machineTitle");
     if (!modal || !img || !err) return;
 
     err.style.display = "none";
@@ -3442,6 +3627,23 @@ el("exNote")?.addEventListener("input", (e) => {
     img.onerror = () => { err.style.display = ""; };
 
     img.src = url;
+    img.alt = "Изображение упражнения";
+    if (title) title.textContent = "Тренажёр";
+    modal.style.display = "";
+  }
+
+  function openImageModal(url, titleText = "Изображение") {
+    const modal = el("machineModal");
+    const img = el("machineImg");
+    const err = el("machineErr");
+    const title = el("machineTitle");
+    if (!modal || !img || !err) return;
+    err.style.display = "none";
+    img.onload = () => { err.style.display = "none"; };
+    img.onerror = () => { err.style.display = ""; };
+    img.src = url;
+    img.alt = titleText;
+    if (title) title.textContent = titleText;
     modal.style.display = "";
   }
 
@@ -3460,6 +3662,12 @@ el("exNote")?.addEventListener("input", (e) => {
     if (!url) return;
     openMachineModal(url);
   });
+  el("photoBtn")?.addEventListener("click", () => {
+    const ex = getExObj();
+    const url = ex?.photo ? String(ex.photo).trim() : "";
+    if (!isValidHttpUrl(url)) return;
+    openImageModal(url, "Фото");
+  });
   el("machineClose")?.addEventListener("click", closeMachineModal);
   el("machineBackdrop")?.addEventListener("click", closeMachineModal);
 
@@ -3467,6 +3675,7 @@ el("exNote")?.addEventListener("input", (e) => {
     if (e.key === "Escape") {
       closeVideoModal();
       closeMachineModal();
+      closeAddWorkoutModal();
     }
   });
 
@@ -4073,24 +4282,12 @@ function renderProgress() {
     }
 
     if (act === "add-workout") {
-      withProgramEditorMutation(key, (ui) => {
-        ui.workouts.push({
-          id: nextProgramId("w"),
-          title: "Новая тренировка",
-          subtitle: "",
-          exercises: [{
-            id: nextProgramId("e"),
-            name: "Новое упражнение",
-            scheme: "3×12",
-            video: "",
-            machine: ""
-          }]
-        });
-      });
+      openAddWorkoutModal(key);
       return;
     }
 
     if (act === "copy-default") {
+      if (key !== "admin") return;
       const ok = confirmDelete("Заменить текущий редактор дефолтной программой? Несохранённые изменения пропадут.");
       if (!ok) return;
       st.ui = legacyProgramToUI(DEFAULT_PROGRAM);
@@ -4165,7 +4362,8 @@ function renderProgress() {
             name: "Новое упражнение",
             scheme: "3×12",
             video: "",
-            machine: ""
+            machine: "",
+            photo: ""
           });
         });
         return;
@@ -4261,7 +4459,7 @@ function renderProgress() {
       if (exNode?.dataset?.exId) {
         const ref = findExerciseRefById(st, exNode.dataset.exId);
         if (!ref) return;
-        if (["name", "scheme", "video", "machine"].includes(field)) {
+        if (["name", "scheme", "video", "machine", "photo"].includes(field)) {
           ref.ex[field] = t.value;
           markProgramEditorDirty(key, true);
           refreshProgramEditorDirtyUi(key);
@@ -4275,6 +4473,18 @@ function renderProgress() {
   bindAdminJsonEditor();
   renderAdminEditorMode();
   renderAdminJsonEditorUi();
+  el("addWorkoutCancel")?.addEventListener("click", closeAddWorkoutModal);
+  el("addWorkoutBackdrop")?.addEventListener("click", closeAddWorkoutModal);
+  el("addWorkoutSave")?.addEventListener("click", () => {
+    haptic();
+    saveAddWorkoutModal();
+  });
+  el("addWorkoutModal")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.target instanceof HTMLInputElement)) {
+      e.preventDefault();
+      saveAddWorkoutModal();
+    }
+  });
 
   el("adminLoadBtn")?.addEventListener("click", async () => {
     if (!isAdminLocal()) return adminMsg("Нет доступа", true);
@@ -4742,6 +4952,30 @@ service cloud.firestore {
 
 </script>
 
+<div id="addWorkoutModal" class="peModal">
+  <div id="addWorkoutBackdrop" class="peModalBg"></div>
+  <div class="peModalCard">
+    <div class="card" style="padding:12px; margin:0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <h3 class="peModalTitle">Новая тренировка</h3>
+        <button class="iconbtn" id="addWorkoutCancel" type="button" title="Закрыть">✕</button>
+      </div>
+      <div class="peModalBody">
+        <label>Название тренировки</label>
+        <input id="addWorkoutTitle" placeholder="Например: Спина" />
+        <label>Первое упражнение</label>
+        <input id="addWorkoutExercise" placeholder="Например: Тяга верхнего блока" />
+        <label>Схема</label>
+        <input id="addWorkoutScheme" placeholder="3×12" />
+      </div>
+      <div class="muted" id="addWorkoutModalErr" style="display:none; margin-top:8px;"></div>
+      <div class="peActions" style="margin-top:12px;">
+        <button type="button" class="btn secondary peTiny" id="addWorkoutSave">Добавить тренировку</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast">
   <div class="toastRow">
     <div class="toastMsg" id="toastMsg">Удалено</div>
@@ -4771,7 +5005,7 @@ service cloud.firestore {
   <div style="position:relative; margin:8vh auto 0; width:min(92vw, 420px);">
     <div class="card" style="padding:12px; margin:0;">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-        <div style="font-weight:900;">Тренажёр</div>
+        <div style="font-weight:900;" id="machineTitle">Тренажёр</div>
         <button class="iconbtn" id="machineClose" type="button" title="Закрыть">✕</button>
       </div>
 
