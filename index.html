@@ -11,7 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
-    --bg:#0b0b0c;
+    --bg:#000000;
     --panel:#121214;
     --border:#2a2a2a;
     --text:#ffffff;
@@ -27,11 +27,7 @@
 
   /* Pink theme: тёмная база + розовый акцент */
 [data-theme="pink"]{
-  --bg: linear-gradient(
-    180deg,
-    #000000 0%,
-    #220620 100%
-  );
+  --bg:#000000;
 
   --panel:#161116;
   --border:#2a1d27;
@@ -111,6 +107,24 @@
     border-radius:22px;
     padding:14px;
     margin:12px 0;
+    position:relative;
+    overflow:hidden;
+  }
+  .card::after{
+    content:"";
+    position:absolute;
+    left:14px;
+    right:14px;
+    top:0;
+    height:1px;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent);
+    pointer-events:none;
+  }
+  :root:not([data-theme="pink"]) .card::after{
+    background:linear-gradient(90deg, transparent, rgba(184,255,77,.65), transparent);
+  }
+  [data-theme="pink"] .card::after{
+    background:linear-gradient(90deg, transparent, rgba(221,119,175,.72), transparent);
   }
   h2{margin:0 0 6px;font-size:18px}
   .muted{color:var(--muted);font-size:13px}
@@ -144,6 +158,27 @@
   }
   .btn.primary{background:var(--btn);color:var(--btnText)}
   .btn.secondary{background:var(--btn2);color:var(--btn2Text);border:1px solid var(--border)}
+  .btn.primary{
+    border:1px solid transparent;
+    box-shadow:0 10px 24px rgba(0,0,0,.28), 0 0 0 1px rgba(255,255,255,.14) inset;
+  }
+  :root:not([data-theme="pink"]) .btn.primary{
+    background:linear-gradient(180deg, #d8ff75 0%, #9dff2e 100%);
+    color:#0b0b0b;
+    box-shadow:0 12px 28px rgba(184,255,77,.34), 0 0 0 1px rgba(255,255,255,.18) inset;
+  }
+  [data-theme="pink"] .btn.primary{
+    background:linear-gradient(180deg, #ff7bc9 0%, #dd77af 100%);
+    box-shadow:0 12px 30px rgba(221,119,175,.40), 0 0 0 1px rgba(255,255,255,.20) inset;
+  }
+  :root:not([data-theme="pink"]) .btn.secondary{
+    background:rgba(184,255,77,.10);
+    border-color:rgba(184,255,77,.34);
+  }
+  [data-theme="pink"] .btn.secondary{
+    background:rgba(221,119,175,.14);
+    border-color:rgba(221,119,175,.34);
+  }
   .btn:disabled{opacity:.55;cursor:not-allowed}
   .alert{
     border:1px solid var(--border);
@@ -156,18 +191,33 @@
 
   /* Tabs: горизонтальный скролл */
   .tabs{
+    position:fixed;
+    left:50%;
+    bottom:calc(12px + env(safe-area-inset-bottom));
+    transform:translateX(-50%);
+    z-index:1000;
     display:flex;
-    gap:6px;
-    border:1px solid var(--border);
-    background:var(--panel);
-    border-radius:18px;
-    padding:6px;
-    position:sticky; top:0; z-index:10;
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:10px 12px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.14);
+    background:rgba(18,18,20,.56);
+    box-shadow:0 18px 42px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.03) inset;
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    width:max-content;
+    max-width:calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right));
+    overflow:visible;
     scrollbar-width:none;
   }
   .tabs::-webkit-scrollbar{display:none;}
+  [data-theme="pink"] .tabs{
+    background:rgba(28,20,27,.62);
+    border-color:rgba(255,255,255,.16);
+    box-shadow:0 20px 48px rgba(0,0,0,.52), 0 0 0 1px rgba(255,255,255,.05) inset;
+  }
 
   #screenApp.swiping{
     position:relative;
@@ -177,8 +227,8 @@
     position:absolute;
     left:0;
     right:0;
-    top:var(--tabsH);
-    height:calc(100% - var(--tabsH));
+    top:0;
+    height:100%;
     will-change:transform;
   }
   #screenApp.swiping .tabpane.swipe-layer.swipe-anim{
@@ -199,24 +249,81 @@
   #bodyWeightChart{ width:100%; height:220px; }
 
   .tab{
-    flex:0 0 auto;
-    padding:10px 10px;
-    border-radius:14px;
-    font-size:12px;
+    position:relative;
+    flex:0 0 46px;
+    width:46px;
+    height:46px;
+    padding:0;
+    border-radius:999px;
     text-align:center;
     cursor:pointer;
-    color:var(--muted);
     user-select:none;
     border:1px solid transparent;
+    background:transparent;
+    color:transparent;
+    font-size:0;
+    line-height:0;
     white-space:nowrap;
+    display:grid;
+    place-items:center;
   }
+  .tab::after{
+    content:"";
+    position:absolute;
+    inset:4px;
+    border-radius:999px;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.10);
+    transition:
+      transform var(--dur) var(--ease),
+      background-color var(--dur) var(--ease),
+      border-color var(--dur) var(--ease),
+      box-shadow var(--dur) var(--ease),
+      opacity var(--dur-fast) ease;
+  }
+  .tab::before{
+    position:absolute;
+    left:50%;
+    top:50%;
+    z-index:2;
+    width:22px;
+    height:22px;
+    display:grid;
+    place-items:center;
+    font-size:18px;
+    line-height:1;
+    color:var(--muted);
+    transform:translate(-50%,-50%) scale(1);
+    transition:
+      transform var(--dur) var(--ease),
+      color var(--dur) var(--ease);
+  }
+  .tab[data-tab="dashboard"]::before{ content:"⌂"; }
+  .tab[data-tab="select"]::before{ content:"◉"; }
+  .tab[data-tab="program"]::before{ content:"≡"; }
+  .tab[data-tab="history"]::before{ content:"◷"; }
+  .tab[data-tab="progress"]::before{ content:"◔"; }
+  .tab[data-tab="admin"]::before{ content:"◎"; }
   .tab.active{
-    background:rgba(0,0,0,.06);
-    border-color:var(--border);
-    color:var(--text);
+    border-color:transparent;
   }
-  [data-theme="pink"] .tab.active{
-    background:rgba(255,62,168,.10);
+  .tab.active::after{
+    inset:-2px;
+    background:var(--btn);
+    border-color:transparent;
+    box-shadow:0 8px 24px rgba(0,0,0,.28), 0 0 0 1px rgba(255,255,255,.12) inset;
+    transform:scale(1.02);
+  }
+  :root:not([data-theme="pink"]) .tab.active::after{
+    background:#b8ff4d;
+    box-shadow:0 10px 28px rgba(184,255,77,.38), 0 0 0 1px rgba(255,255,255,.14) inset;
+  }
+  .tab.active::before{
+    color:var(--btnText);
+    transform:translate(-50%,-50%) scale(1.07);
+  }
+  [data-theme="pink"] .tab.active::after{
+    box-shadow:0 10px 28px rgba(221,119,175,.42), 0 0 0 1px rgba(255,255,255,.14) inset;
   }
 
   .grid3{display:grid;grid-template-columns:1fr;gap:10px}
@@ -343,9 +450,9 @@
   .calDay.isSelected .calDot{ background:rgba(0,0,0,.35); }
   :root:not([data-theme="pink"]) .calDay.hasWorkout,
   :root:not([data-theme="pink"]) .calDay.isSelected{
-    background: linear-gradient(180deg, #7db7ff 0%, #3f8dff 100%);
+    background: linear-gradient(180deg, #d8ff75 0%, #9dff2e 100%);
     color:#ffffff;
-    box-shadow: 0 8px 18px rgba(77,163,255,.35), 0 0 0 1px rgba(255,255,255,.18) inset;
+    box-shadow: 0 8px 18px rgba(184,255,77,.35), 0 0 0 1px rgba(255,255,255,.18) inset;
   }
   [data-theme="pink"] .calDay.hasWorkout,
   [data-theme="pink"] .calDay.isSelected{
@@ -377,7 +484,7 @@
 
 /* black theme (когда data-theme НЕ pink) */
 :root:not([data-theme="pink"]) .bar > div{
-  background: linear-gradient(90deg, rgba(122,180,255,.55), rgba(122,180,255,1));
+  background: linear-gradient(90deg, rgba(184,255,77,.55), rgba(184,255,77,1));
 }
 
   .deltaPlus{color:var(--success);font-weight:900}
@@ -429,8 +536,8 @@
   letter-spacing:.2px;
 }
 :root:not([data-theme="pink"]) .deltaBig{
-  color:#4da3ff;
-  text-shadow:0 0 12px rgba(77,163,255,.25);
+  color:#b8ff4d;
+  text-shadow:0 0 12px rgba(184,255,77,.25);
 }
 [data-theme="pink"] .deltaBig{
   color:var(--btn);
@@ -538,23 +645,27 @@ html{
 
 body{
   min-height: 100vh;
-  background: var(--bg);
+  background:#000000;
   background-repeat: no-repeat;
-  background-size: cover;
-  background-attachment: fixed;
+  background-size: auto;
+  background-attachment: scroll;
+}
+body::before,
+body::after{
+  content:none !important;
+  display:none !important;
 }
 
 /* safe-area для айфонов с вырезом */
 .wrap{
   padding-top: calc(16px + env(safe-area-inset-top));
   padding-right: calc(14px + env(safe-area-inset-right));
-  padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  padding-bottom: calc(114px + env(safe-area-inset-bottom));
   padding-left: calc(14px + env(safe-area-inset-left));
 }
 
-/* sticky tabs учитывают safe-area сверху */
-.tabs{
-  top: env(safe-area-inset-top);
+#screenApp{
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
 }
 
 
@@ -575,11 +686,20 @@ body{
   background:rgba(255,255,255,.08);
   border-color:rgba(255,255,255,.18);
 }
-[data-theme="pink"] .chip.on{
-  background:rgba(255,62,168,.14);
-  border-color:rgba(255,62,168,.22);
+[data-theme="pink"] .chip{
+  border-color:rgba(221,119,175,.24);
 }
-
+[data-theme="pink"] .chip.on{
+  background:rgba(221,119,175,.22);
+  border-color:rgba(221,119,175,.42);
+}
+:root:not([data-theme="pink"]) .chip{
+  border-color:rgba(184,255,77,.26);
+}
+:root:not([data-theme="pink"]) .chip.on{
+  background:rgba(184,255,77,.20);
+  border-color:rgba(184,255,77,.44);
+}
 /* --- Previous sets box --- */
 .prevBox{
   border:1px dashed rgba(255,255,255,.22);
@@ -953,8 +1073,15 @@ input[type="date"]{
   .btn.secondary:hover{
     border-color: rgba(255,255,255,.22);
   }
+  :root:not([data-theme="pink"]) .btn.secondary:hover{
+    background:rgba(184,255,77,.18);
+    border-color:rgba(184,255,77,.50);
+    box-shadow:0 10px 22px rgba(184,255,77,.18);
+  }
   [data-theme="pink"] .btn.secondary:hover{
-    border-color: rgba(255,62,168,.28);
+    background:rgba(221,119,175,.20);
+    border-color:rgba(221,119,175,.44);
+    box-shadow:0 10px 22px rgba(221,119,175,.20);
   }
 
   .iconbtn:hover{
@@ -964,13 +1091,22 @@ input[type="date"]{
   }
 
   .tab:hover{
-    color: var(--text);
-    border-color: rgba(255,255,255,.16);
-    background: rgba(255,255,255,.04);
+    border-color: transparent;
   }
-  [data-theme="pink"] .tab:hover{
-    background: rgba(255,62,168,.08);
-    border-color: rgba(255,62,168,.18);
+  .tab:hover::after{
+    background:rgba(255,255,255,.12);
+    border-color:rgba(255,255,255,.16);
+    transform:scale(1.04);
+  }
+  .tab:hover::before{
+    color:var(--text);
+  }
+  [data-theme="pink"] .tab:hover::after{
+    background:rgba(255,255,255,.12);
+    border-color:rgba(255,255,255,.20);
+  }
+  [data-theme="pink"] .tab:hover::before{
+    color:#ffffff;
   }
 
   .pill:hover{
@@ -1029,6 +1165,9 @@ input[type="date"]{
   transform: scale(.98);
   opacity: .95;
 }
+.tab:active::after{
+  transform:scale(.98);
+}
 
 /* focus для клавиатуры (не мешает тачу) */
 .btn:focus-visible,
@@ -1046,7 +1185,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible{
   outline: none;
-  box-shadow: 0 0 0 3px rgba(77,163,255,.28);
+  box-shadow: 0 0 0 3px rgba(184,255,77,.30);
 }
 
 [data-theme="pink"] .btn:focus-visible,
@@ -1087,7 +1226,7 @@ input:focus, select:focus, textarea:focus{
     color var(--dur) var(--ease);
 }
 .tab.active{
-  transform: translateY(-1px);
+  transform: scale(1.02);
 }
 
 /* ---------- Program editor ---------- */
@@ -2227,8 +2366,8 @@ async function deleteBodyWeeklyByMonday(dateISO) {
   function themeLineColor() {
     const isPink = document.documentElement.getAttribute("data-theme") === "pink";
 
-    // black theme → синий
-    if (!isPink) return "#4da3ff";
+    // black theme → салатовый
+    if (!isPink) return "#b8ff4d";
 
     // pink theme → текущий акцент
     const root = document.documentElement;
